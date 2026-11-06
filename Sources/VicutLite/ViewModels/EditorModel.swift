@@ -11,6 +11,9 @@ final class EditorModel {
   static let minSelection = 0.05
   static let zoomStep = 2.0
   static let thumbnailDebounce = Duration.milliseconds(150)
+  /// Length of a span added from the edit menu at the playhead.
+  static let newSpanLength = 3.0
+  static let toastDuration = Duration.milliseconds(3200)
 
   struct Thumbnail {
     let range: ClosedRange<Double>
@@ -28,8 +31,21 @@ final class EditorModel {
   /// Where the selection edge last snapped, so the timeline can draw a guide.
   var snapGuide: Double?
   private(set) var loadError: String?
-  var selection: ClosedRange<Double>?
-  var notice: String?
+  /// A dragged / I–O range; takes priority over `selectedSpanTime` as the edit target.
+  var selection: ClosedRange<Double>? {
+    didSet {
+      if selection != nil { selectedSpanTime = nil }
+    }
+  }
+  /// A time inside the selected span. Spans are re-resolved after every edit, so a time
+  /// survives merges and splits where an index or id would not.
+  var selectedSpanTime: Double?
+  private(set) var toast: EditorToast?
+  /// Set when an edit would wipe out whole cut / speed parts; the view asks before applying.
+  private(set) var pendingReplace: PendingReplace?
+  /// Seam for the Spans list panel (not built yet): the timeline toggle flips it, the layout
+  /// reserves a docked slot and a floating overlay for it.
+  var spansPanel: SpansPanelMode = .closed
   /// Skip cut parts and fast-forward speed parts while playing, so the preview matches the export.
   var previewEdits = true
 
@@ -40,6 +56,7 @@ final class EditorModel {
   @ObservationIgnored private var thumbnailTask: Task<Void, Never>?
   @ObservationIgnored private var thumbnailWindow: ClosedRange<Double>?
   @ObservationIgnored private var thumbnailSpan: Double?
+  @ObservationIgnored private var toastTask: Task<Void, Never>?
 
   init(url: URL) {
     self.url = url
@@ -58,6 +75,22 @@ final class EditorModel {
 
   var canUndo: Bool { !undoStack.isEmpty }
   var hasSelection: Bool { selection != nil }
+
+  var selectedSpan: Segment? {
+    guard let selectedSpanTime, duration > 0 else { return nil }
+    return Timeline.span(at: selectedSpanTime, marks: marks, duration: duration)
+  }
+
+  /// What the edit menu and C / 2 / 4 / 8 / K act on: the range selection, else the selected span.
+  var editTarget: EditTarget? {
+    if let selection {
+      return EditTarget(range: selection, action: nil)
+    }
+    if let span = selectedSpan {
+      return EditTarget(range: span.start...span.end, action: span.action)
+    }
+    return nil
+  }
 
   func load() async {
     let asset = AVURLAsset(url: url)
@@ -92,11 +125,11 @@ final class EditorModel {
   }
 
   func zoomToSelection() {
-    guard let selection else {
-      notice = "Select a range first, then press Z to zoom to it."
+    guard let range = editTarget?.range else {
+      flash("Select a range first, then press Z to zoom to it.", isError: true)
       return
     }
-    updateViewport { $0.fit(selection) }
+    updateViewport { $0.fit(range) }
   }
 
   func pan(by seconds: Double) {
@@ -117,6 +150,7 @@ final class EditorModel {
 
   func teardown() {
     thumbnailTask?.cancel()
+    toastTask?.cancel()
     player.pause()
     if let timeObserver {
       player.removeTimeObserver(timeObserver)
@@ -170,21 +204,89 @@ final class EditorModel {
     pendingIn = selection?.lowerBound
   }
 
-  func apply(_ action: SegmentAction) {
-    guard let selection else {
-      notice = "Select a range first: drag on the timeline, or press I and O."
-      return
-    }
-    let candidate = marks + [Segment(start: selection.lowerBound, end: selection.upperBound, action: action)]
-    guard (try? Timeline.normalize(marks: candidate, duration: duration)) != nil else {
-      notice = "That would cut the whole clip."
-      return
-    }
-    undoStack.append(marks)
-    marks = candidate
-    self.selection = nil
+  func selectSpan(at time: Double) {
+    selection = nil
     pendingIn = nil
-    notice = nil
+    selectedSpanTime = min(max(time, 0), duration)
+  }
+
+  /// Applies `action` to the edit target (range selection, else selected span).
+  func apply(_ action: SegmentAction) {
+    guard let target = editTarget else {
+      flash("Select a range first: drag on the timeline, or press I and O.", isError: true)
+      return
+    }
+    guard target.action != action else { return }
+    paint(target.range, with: action)
+  }
+
+  /// Adds a short span starting at the playhead, as offered by the edit menu.
+  func addAtPlayhead(_ action: SegmentAction) {
+    let end = min(currentTime + Self.newSpanLength, duration)
+    guard end - currentTime >= Self.minSelection else {
+      flash("The playhead is at the end of the clip.", isError: true)
+      return
+    }
+    paint(currentTime...end, with: action)
+  }
+
+  func confirmPendingReplace() {
+    guard let pending = pendingReplace else { return }
+    pendingReplace = nil
+    commit(pending.range, with: pending.action, trimmed: pending.impact.trimmed)
+  }
+
+  func cancelPendingReplace() {
+    pendingReplace = nil
+  }
+
+  private func paint(_ range: ClosedRange<Double>, with action: SegmentAction) {
+    let candidate = marks + [Segment(start: range.lowerBound, end: range.upperBound, action: action)]
+    guard (try? Timeline.normalize(marks: candidate, duration: duration)) != nil else {
+      flash("That would cut the whole clip.", isError: true)
+      return
+    }
+    let impact = Timeline.overlap(of: range, action: action, marks: marks, duration: duration)
+    if !impact.covered.isEmpty {
+      pendingReplace = PendingReplace(range: range, action: action, impact: impact)
+      return
+    }
+    commit(range, with: action, trimmed: impact.trimmed)
+  }
+
+  private func commit(_ range: ClosedRange<Double>, with action: SegmentAction, trimmed: [Segment]) {
+    undoStack.append(marks)
+    marks.append(Segment(start: range.lowerBound, end: range.upperBound, action: action))
+    selection = nil
+    pendingIn = nil
+    selectedSpanTime = (range.lowerBound + range.upperBound) / 2
+    if trimmed.isEmpty {
+      dismissToast()
+    } else {
+      flash("Trimmed: " + trimmed.map { "\($0.action.title) → \(Self.rangeText($0.start...$0.end, separator: "–"))" }
+        .joined(separator: " · "))
+    }
+  }
+
+  static func rangeText(_ range: ClosedRange<Double>, separator: String = " → ") -> String {
+    Formatters.duration(range.lowerBound) + separator + Formatters.duration(range.upperBound)
+  }
+
+  // MARK: Toast
+
+  func flash(_ message: String, isError: Bool = false) {
+    toast = EditorToast(message: message, isError: isError)
+    toastTask?.cancel()
+    toastTask = Task { [weak self] in
+      try? await Task.sleep(for: Self.toastDuration)
+      guard !Task.isCancelled else { return }
+      self?.toast = nil
+    }
+  }
+
+  func dismissToast() {
+    toastTask?.cancel()
+    toast = nil
   }
 
   func undo() {
@@ -197,6 +299,7 @@ final class EditorModel {
     undoStack.append(marks)
     marks = []
     selection = nil
+    pendingIn = nil
   }
 
   private func installTimeObserver() {
@@ -278,6 +381,42 @@ final class EditorModel {
       self.thumbnails = images
       self.thumbnailWindow = window
       self.thumbnailSpan = span
+    }
+  }
+}
+
+struct EditTarget: Equatable {
+  let range: ClosedRange<Double>
+  /// nil for a free range selection, which can span several parts.
+  let action: SegmentAction?
+}
+
+struct EditorToast: Equatable {
+  let message: String
+  let isError: Bool
+}
+
+struct PendingReplace: Equatable {
+  let range: ClosedRange<Double>
+  let action: SegmentAction
+  let impact: OverlapImpact
+}
+
+/// Mirrors the canvas `panel` prop: hidden, floating over the stage, or docked beside it.
+enum SpansPanelMode: Equatable {
+  case closed
+  case floating
+  case pinned
+
+  var isOpen: Bool { self != .closed }
+}
+
+extension SegmentAction {
+  var title: String {
+    switch self {
+    case .keep: "Normal"
+    case .cut: "Cut"
+    case .speed(let factor): "\(Formatters.speed(factor)) speed"
     }
   }
 }
