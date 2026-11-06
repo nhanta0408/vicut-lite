@@ -190,6 +190,38 @@ extension DS {
   }
 }
 
+// MARK: - History page (additive)
+
+extension DS.Color {
+  /// Outline of the "Not found" badge.
+  static let dangerBorder = SwiftUI.Color(hex: 0x5A2A20)
+}
+
+extension DS.Space {
+  /// History item inner padding (canvas: "padding 10").
+  static let s2_5: CGFloat = 10
+  /// Badge horizontal padding (canvas: "2 × 7").
+  static let badgeX: CGFloat = 7
+}
+
+extension DS.Size {
+  /// Borders and dividers.
+  static let hairline: CGFloat = 1
+  /// Small icon button (Show in Finder, title-bar buttons).
+  static let iconButtonSm: CGFloat = 32
+  /// Glyph inside a small icon button.
+  static let iconGlyph: CGFloat = 16
+  /// Glyph above an empty-state message.
+  static let emptyGlyph: CGFloat = 32
+}
+
+extension DS {
+  enum Opacity {
+    /// Rows whose file is gone (History "Not found").
+    static let unavailable: Double = 0.6
+  }
+}
+
 // MARK: - Helpers
 
 extension SwiftUI.Color {

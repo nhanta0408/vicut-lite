@@ -63,6 +63,8 @@ final class JobQueue {
   private(set) var jobs: [Job] = []
   @ObservationIgnored private let settings: SettingsStore
   @ObservationIgnored private var worker: Task<Void, Never>?
+  /// Fires once per successful export (History records it).
+  @ObservationIgnored var onJobFinished: ((Job, ExportResult) -> Void)?
 
   init(settings: SettingsStore) {
     self.settings = settings
@@ -149,6 +151,7 @@ final class JobQueue {
     do {
       let result = try await task.value
       job.state = .done(result)
+      onJobFinished?(job, result)
     } catch is CancellationError {
       job.state = .cancelled
     } catch let FFmpegError.failed(exitCode, log) {
