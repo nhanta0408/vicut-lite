@@ -15,6 +15,24 @@ public enum EncoderMode: String, Codable, CaseIterable, Sendable {
   case light
 }
 
+/// How hard to squeeze, as a quality level. With a size target it's a ceiling: the encode never goes above
+/// this quality, and the target still caps the bitrate. With "No limit" it alone decides the file size.
+public enum CompressQuality: String, Codable, CaseIterable, Sendable {
+  case smaller
+  case balanced
+  case sharper
+
+  /// x264 CRF; Light maps it to VideoToolbox `-q:v`. Smaller is the pre-1.1 default; on screen recordings
+  /// each step is roughly 1.4× the file size of the one below.
+  public var crf: Int {
+    switch self {
+    case .smaller: 26
+    case .balanced: 22
+    case .sharper: 18
+    }
+  }
+}
+
 public struct CompressSettings: Codable, Equatable, Sendable {
   /// nil = no size limit (quality-based encode only).
   public var targetBytes: Int64?
@@ -28,6 +46,12 @@ public struct CompressSettings: Codable, Equatable, Sendable {
   public var crf: Int?
   /// nil = `.fast`. Optional so settings saved by older builds still decode.
   public var encoder: EncoderMode?
+  /// nil = `.balanced`. Optional so settings saved by older builds still decode.
+  public var quality: CompressQuality?
+
+  public var resolvedQuality: CompressQuality { quality ?? .balanced }
+  /// An explicit `crf` (full-quality export) wins over the quality level.
+  public var resolvedCrf: Int { crf ?? resolvedQuality.crf }
 
   public var resolvedEncoder: EncoderMode { encoder ?? .fast }
 
@@ -39,7 +63,8 @@ public struct CompressSettings: Codable, Equatable, Sendable {
     muteSpedUpAudio: Bool,
     outputSuffix: String,
     crf: Int? = nil,
-    encoder: EncoderMode? = nil
+    encoder: EncoderMode? = nil,
+    quality: CompressQuality? = nil
   ) {
     self.targetBytes = targetBytes
     self.maxDimension = maxDimension
@@ -49,6 +74,7 @@ public struct CompressSettings: Codable, Equatable, Sendable {
     self.outputSuffix = outputSuffix
     self.crf = crf
     self.encoder = encoder
+    self.quality = quality
   }
 
   /// Default size cap: 10 MB (decimal, like Finder shows) fits most chat and issue-tracker uploads.

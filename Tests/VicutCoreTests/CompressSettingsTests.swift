@@ -51,9 +51,11 @@ struct CompressSettingsTests {
   @Test func settingsSavedBeforeEncoderOptionDecodeAsFast() throws {
     var legacy = try JSONSerialization.jsonObject(with: JSONEncoder().encode(CompressSettings.default)) as? [String: Any] ?? [:]
     legacy.removeValue(forKey: "encoder")
+    legacy.removeValue(forKey: "quality")
     let decoded = try JSONDecoder().decode(CompressSettings.self, from: JSONSerialization.data(withJSONObject: legacy))
     #expect(decoded.encoder == nil)
     #expect(decoded.resolvedEncoder == .fast)
+    #expect(decoded.resolvedQuality == .balanced)
     #expect(decoded.isDefault)
   }
 

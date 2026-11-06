@@ -79,12 +79,27 @@ struct SettingsView: View {
       }
       SettingsDivider()
       SettingsRow(
+        label: "Quality",
+        hint: "With a size limit, the most it will spend. With No limit, this alone decides the file size."
+      ) {
+        SegmentedControl(title: "Quality", options: SettingsOptions.quality, selection: qualityBinding)
+      }
+      SettingsDivider()
+      SettingsRow(
         label: "Encoder",
         hint: "Fast uses every CPU core. Light uses Apple's media engine: under one core, a bit slower, slightly larger files."
       ) {
         SegmentedControl(title: "Encoder", options: SettingsOptions.encoder, selection: encoderBinding)
       }
     }
+  }
+
+  /// `.balanced` is stored as nil so untouched settings still compare equal to the defaults.
+  private var qualityBinding: Binding<CompressQuality> {
+    Binding(
+      get: { store.settings.resolvedQuality },
+      set: { store.settings.quality = $0 == .balanced ? nil : $0 }
+    )
   }
 
   /// `.fast` is stored as nil so untouched settings still compare equal to the defaults.
@@ -166,6 +181,12 @@ enum SettingsOptions {
   static let fps: [SegmentOption<Int>] = CompressSettings.fpsPresets.map {
     SegmentOption(value: $0, label: "\($0) fps")
   }
+
+  static let quality: [SegmentOption<CompressQuality>] = [
+    SegmentOption(value: .smaller, label: "Smaller", hint: "Smallest files, softer text"),
+    SegmentOption(value: .balanced, label: "Balanced", hint: "Default"),
+    SegmentOption(value: .sharper, label: "Sharper", hint: "Crisp text, bigger files")
+  ]
 
   static let encoder: [SegmentOption<EncoderMode>] = [
     SegmentOption(value: .fast, label: "Fast", hint: "x264 on every CPU core · smallest files"),

@@ -104,6 +104,27 @@ struct BitratePlannerTests {
   @Test func compressedPlanUsesDefaultCrf() {
     let plan = BitratePlanner.plan(source: info(), outputDuration: 60, settings: .default, edited: false)
     #expect(plan.crf == EncodePlan.defaultCrf)
+    #expect(plan.crf == CompressQuality.balanced.crf)
+  }
+
+  @Test(arguments: CompressQuality.allCases)
+  func qualityLevelSetsCrf(quality: CompressQuality) {
+    var settings = CompressSettings.default
+    settings.quality = quality
+    let plan = BitratePlanner.plan(source: info(), outputDuration: 60, settings: settings, edited: false)
+    #expect(plan.crf == quality.crf)
+  }
+
+  @Test func explicitCrfWinsOverQuality() {
+    var settings = CompressSettings.fullQuality(muteSpedUpAudio: true)
+    settings.quality = .smaller
+    let plan = BitratePlanner.plan(source: info(), outputDuration: 60, settings: settings, edited: false)
+    #expect(plan.crf == CompressSettings.fullQualityCrf)
+  }
+
+  @Test func qualityLevelsGetSharperInOrder() {
+    #expect(CompressQuality.smaller.crf > CompressQuality.balanced.crf)
+    #expect(CompressQuality.balanced.crf > CompressQuality.sharper.crf)
   }
 
   @Test func settingsStoredBeforeCrfExistedStillDecode() throws {

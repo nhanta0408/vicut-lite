@@ -3,15 +3,16 @@ import Foundation
 public enum EncodeCommandBuilder {
   static let preset = "medium"
 
-  /// VideoToolbox constant quality (`-q:v`, 1–100) that gives about the file size of `EncodePlan.defaultCrf`
-  /// on screen recordings; measured on a 1080p60 clip scaled to 720p30.
+  /// VideoToolbox constant quality (`-q:v`, 1–100) that gives about the file size of x264 at
+  /// `videoToolboxAnchorCrf` on screen recordings; measured on a 1080p60 clip scaled to 720p30.
   static let videoToolboxDefaultQuality = 45
+  static let videoToolboxAnchorCrf = 26
   /// Quality points per CRF step, so full-quality exports (lower CRF) map to a higher `-q:v`.
   static let videoToolboxQualityPerCrf = 2.5
   static let videoToolboxQualityRange = 1...100
 
   static func videoToolboxQuality(crf: Int) -> Int {
-    let raw = Double(videoToolboxDefaultQuality) + Double(EncodePlan.defaultCrf - crf) * videoToolboxQualityPerCrf
+    let raw = Double(videoToolboxDefaultQuality) + Double(videoToolboxAnchorCrf - crf) * videoToolboxQualityPerCrf
     return min(max(Int(raw.rounded()), videoToolboxQualityRange.lowerBound), videoToolboxQualityRange.upperBound)
   }
 

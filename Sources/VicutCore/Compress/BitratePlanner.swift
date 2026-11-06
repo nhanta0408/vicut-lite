@@ -18,8 +18,8 @@ public struct EncodePlan: Sendable, Equatable {
   public var audioChannels: Int?
   public var crf: Int
 
-  /// Visually clean for screen content while still small; maxrate keeps it under the size budget.
-  public static let defaultCrf = 26
+  /// Balanced quality; maxrate keeps it under the size budget.
+  public static let defaultCrf = CompressQuality.balanced.crf
 
   public init(
     mode: Mode, width: Int, height: Int, fps: Int, videoKbps: Int?, audioKbps: Int, audioChannels: Int?,
@@ -53,7 +53,7 @@ public enum BitratePlanner {
     edited: Bool
   ) -> EncodePlan {
     let fps = max(1, min(Int(source.fps.rounded()), settings.fpsCap))
-    let crf = settings.crf ?? EncodePlan.defaultCrf
+    let crf = settings.resolvedCrf
     let (audioKbps, audioChannels) = audioBudget(source: source, mode: settings.audio)
     var (width, height) = scaled(source: source, longestSide: settings.maxDimension)
 
