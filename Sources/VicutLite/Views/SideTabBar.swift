@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 /// Pages the Queue window can show in place of the queue.
@@ -98,9 +99,20 @@ private struct SideTabLabelStyle: LabelStyle {
   }
 }
 
-/// Credit / about footer pinned to the bottom of the side tab bar.
+/// Credit / about footer pinned to the bottom of the side tab bar. Clicking it opens the About panel,
+/// which shows the license and open source credits (Resources/Credits.html).
 private struct SideTabCredit: View {
   var body: some View {
+    Button {
+      NSApp.orderFrontStandardAboutPanel(nil)
+    } label: {
+      content
+    }
+    .buttonStyle(.plain)
+    .help("About ViCut Lite · open source licenses")
+  }
+
+  private var content: some View {
     HStack(spacing: DS.Space.s2_5) {
       BrandMark()
         .frame(width: DS.Size.brandMarkCredit, height: DS.Size.brandMarkCredit)
@@ -120,6 +132,7 @@ private struct SideTabCredit: View {
     .overlay(alignment: .top) {
       Rectangle().fill(DS.Color.borderSubtle).frame(height: DS.Stroke.hairline)
     }
+    .contentShape(Rectangle())
     .accessibilityElement(children: .combine)
   }
 
