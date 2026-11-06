@@ -50,7 +50,7 @@ struct HistoryView: View {
       Spacer(minLength: DS.Space.s2)
       if !history.entries.isEmpty {
         Button("Clear") { confirmClear = true }
-          .buttonStyle(GhostTextButtonStyle())
+          .buttonStyle(DSGhostButtonStyle(size: .medium, quiet: true))
           .help("Remove every entry from History")
       }
     }
@@ -117,9 +117,9 @@ struct HistoryItemRow: View {
 
       if isFound {
         Button(action: reveal) {
-          Image(systemName: "folder")
+          DSIcon("folder", size: DS.Size.iconGlyph)
         }
-        .buttonStyle(GhostIconButtonStyle())
+        .buttonStyle(DSIconButtonStyle(size: .medium, bordered: true, quiet: true))
         .help("Show in Finder")
         .accessibilityLabel("Show in Finder")
       } else {

@@ -374,6 +374,28 @@ extension DS.Size {
   static let settingsWindowHeight: CGFloat = 560
 }
 
+// MARK: - Side tab bar (additive)
+
+extension DS.Size {
+  /// Side tab bar panel width.
+  static let sideTabBarWidth: CGFloat = 232
+  /// Nav item height in the side tab bar.
+  static let sideTabItem: CGFloat = 40
+  /// App mark in the side tab bar credit footer.
+  static let brandMarkCredit: CGFloat = 30
+}
+
+extension DS.Shadow {
+  /// Side tab bar casts its shadow to the right, over the scrim.
+  static let panelRadius: CGFloat = 40
+  static let panelX: CGFloat = 16
+}
+
+extension DS.Motion {
+  /// Side tab bar slide-in / scrim fade.
+  static let panel = Animation.easeOut(duration: 0.2)
+}
+
 // MARK: - Helpers
 
 extension SwiftUI.Color {

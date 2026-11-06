@@ -6,6 +6,8 @@ struct QueueFooterView: View {
   @Environment(SettingsStore.self) private var settings
   let savedBytes: Int64
   let onAddVideos: () -> Void
+  /// Opens the in-window Settings page.
+  let onOpenSettings: () -> Void
   @State private var showPresets = false
 
   var body: some View {
@@ -13,7 +15,7 @@ struct QueueFooterView: View {
       presetChip
       savedLabel
       Spacer(minLength: DS.Space.s2)
-      SettingsLink {
+      Button(action: onOpenSettings) {
         DSIcon("gearshape", size: DS.Size.glyphLarge)
       }
       .buttonStyle(DSIconButtonStyle(size: .large, bordered: true))
@@ -49,7 +51,10 @@ struct QueueFooterView: View {
     .buttonStyle(DSChipButtonStyle())
     .help("Compression preset")
     .popover(isPresented: $showPresets, arrowEdge: .top) {
-      PresetPopover()
+      PresetPopover {
+        showPresets = false
+        onOpenSettings()
+      }
     }
   }
 
@@ -67,6 +72,7 @@ struct QueueFooterView: View {
 /// Quick switch for the three settings people change most; the rest live in Settings.
 private struct PresetPopover: View {
   @Environment(SettingsStore.self) private var store
+  let onAllSettings: () -> Void
 
   private static let targets: [(String, Int64?)] = [
     ("5 MB", 5_000_000),
@@ -102,7 +108,7 @@ private struct PresetPopover: View {
         }
       }
       Rectangle().fill(DS.Color.borderSubtle).frame(height: DS.Stroke.hairline)
-      SettingsLink {
+      Button(action: onAllSettings) {
         Text("All settings…").frame(maxWidth: .infinity, alignment: .leading)
       }
       .buttonStyle(DSGhostButtonStyle(size: .small, bordered: false))

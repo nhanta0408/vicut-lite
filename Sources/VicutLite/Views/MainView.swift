@@ -2,17 +2,19 @@ import AppKit
 import SwiftUI
 import UniformTypeIdentifiers
 
-/// The Queue window, Home state: title bar, drop bar, job list, footer / selection bar.
+/// The Queue window: title bar over Home (drop bar, job list, footer / selection bar) or a
+/// full-window History / Settings page, with the side tab bar sliding over either.
 struct MainView: View {
   @Environment(JobQueue.self) private var queue
   @Environment(\.openWindow) private var openWindow
+  @Environment(\.accessibilityReduceMotion) private var reduceMotion
+  @State private var page: QueuePage = .home
   @State private var importAction: DropAction?
   @State private var isDropTargeted = false
   @State private var isSelecting = false
   @State private var selection: Set<Job.ID> = []
   /// Jobs waiting for the "Move to Trash?" confirmation; nil when the dialog is closed.
   @State private var trashCandidates: [Job]?
-  /// Hook for the upcoming side tab bar; toggled from the title bar.
   @State private var isSidebarVisible = false
   /// File names that could not be trashed (e.g. moved or on a read-only volume).
   @State private var trashFailures: [String] = []
@@ -22,20 +24,13 @@ struct MainView: View {
       QueueTitleBar(
         doneCount: queue.jobs.filter { $0.result != nil }.count,
         activeCount: queue.jobs.filter(\.isActive).count,
-        isSidebarVisible: $isSidebarVisible,
-        onHome: { exitSelection() }
+        page: page,
+        isSidebarVisible: Binding(get: { isSidebarVisible }, set: { setSidebar($0) }),
+        onHome: { navigate(to: .home) }
       )
-      home
-      if isSelecting {
-        SelectionBarView(
-          selectedCount: selectedJobs.count,
-          freedBytes: selectedJobs.reduce(0) { $0 + $1.originalBytes },
-          onCancel: exitSelection,
-          onDelete: { trashCandidates = selectedJobs }
-        )
-      } else {
-        QueueFooterView(savedBytes: queue.sessionSavedBytes, onAddVideos: { importAction = .compress })
-      }
+      pageContent
+        .overlay(alignment: .leading) { sideTabBar }
+        .background { escapeShortcut }
     }
     .frame(minWidth: DS.Size.queueWindowMin.width, minHeight: DS.Size.queueWindowMin.height)
     .background(DS.Color.bgApp)
@@ -69,6 +64,78 @@ struct MainView: View {
     .onChange(of: queue.jobs.map(\.id)) { _, ids in
       selection.formIntersection(ids)
     }
+  }
+
+  // MARK: Pages
+
+  @ViewBuilder private var pageContent: some View {
+    // Pages only swap views; the queue keeps encoding because JobQueue lives in AppDelegate.
+    switch page {
+    case .home:
+      VStack(spacing: 0) {
+        home
+        if isSelecting {
+          SelectionBarView(
+            selectedCount: selectedJobs.count,
+            freedBytes: selectedJobs.reduce(0) { $0 + $1.originalBytes },
+            onCancel: exitSelection,
+            onDelete: { trashCandidates = selectedJobs }
+          )
+        } else {
+          QueueFooterView(
+            savedBytes: queue.sessionSavedBytes,
+            onAddVideos: { importAction = .compress },
+            onOpenSettings: { navigate(to: .settings) }
+          )
+        }
+      }
+    case .history:
+      HistoryView(onBack: { navigate(to: .home) })
+    case .settings:
+      SettingsView(onBack: { navigate(to: .home) })
+    }
+  }
+
+  @ViewBuilder private var sideTabBar: some View {
+    if isSidebarVisible {
+      ZStack(alignment: .leading) {
+        Button { setSidebar(false) } label: {
+          DS.Color.bgScrim
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Close side tab bar")
+        .transition(.opacity)
+        SideTabBar(current: page, onSelect: navigate(to:))
+          .transition(reduceMotion ? .opacity : .move(edge: .leading))
+      }
+    }
+  }
+
+  /// Esc must work even when nothing in the window has focus, which `onExitCommand` needs.
+  /// The tab bar closes first; on a page, Esc then goes back to Home.
+  @ViewBuilder private var escapeShortcut: some View {
+    if isSidebarVisible || page != .home {
+      Button("") {
+        if isSidebarVisible {
+          setSidebar(false)
+        } else {
+          navigate(to: .home)
+        }
+      }
+      .keyboardShortcut(.cancelAction)
+      .opacity(0)
+      .accessibilityHidden(true)
+    }
+  }
+
+  private func setSidebar(_ visible: Bool) {
+    withAnimation(DS.Motion.panel) { isSidebarVisible = visible }
+  }
+
+  private func navigate(to destination: QueuePage) {
+    if destination != .home { exitSelection() }
+    page = destination
+    setSidebar(false)
   }
 
   // MARK: Home content
