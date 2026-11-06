@@ -16,11 +16,25 @@ final class SettingsStore {
   init(defaults: UserDefaults = .standard) {
     self.defaults = defaults
     if let data = defaults.data(forKey: Self.defaultsKey),
-       let stored = try? JSONDecoder().decode(CompressSettings.self, from: data) {
+       var stored = try? JSONDecoder().decode(CompressSettings.self, from: data) {
+      // Builds before sanitizing accepted any suffix; clean it so it can't escape the source folder.
+      stored.outputSuffix = CompressSettings.sanitizedSuffix(stored.outputSuffix)
       settings = stored
     } else {
       settings = .default
     }
+  }
+
+  /// Bind text inputs here rather than to `settings.outputSuffix` so unsafe characters never persist.
+  var outputSuffix: String {
+    get { settings.outputSuffix }
+    set { settings.outputSuffix = CompressSettings.sanitizedSuffix(newValue) }
+  }
+
+  var isDefault: Bool { settings.isDefault }
+
+  func restoreDefaults() {
+    settings = .default
   }
 
   var summary: String {

@@ -41,12 +41,36 @@ public struct CompressSettings: Codable, Equatable, Sendable {
 
   public static let `default` = CompressSettings(
     targetBytes: githubLimitBytes,
-    maxDimension: 1920,
+    maxDimension: maxDimension1080p,
     fpsCap: 30,
     audio: .mono,
     muteSpedUpAudio: true,
     outputSuffix: "-vicut"
   )
+
+  /// Size presets offered in Settings besides `githubLimitBytes` (decimal MB, like Finder shows).
+  public static let smallTargetBytes: Int64 = 5_000_000
+  public static let largeTargetBytes: Int64 = 25_000_000
+
+  /// Longest-side caps offered in Settings.
+  public static let maxDimension1080p = 1920
+  public static let maxDimension720p = 1280
+
+  /// Frame-rate caps offered in Settings.
+  public static let fpsPresets = [15, 30, 60]
+
+  public var isDefault: Bool { self == .default }
+
+  /// Keeps names short enough that long recording names plus suffix stay under the 255-byte file name limit.
+  public static let maxSuffixLength = 40
+
+  /// The suffix is spliced into a file name, so path separators, Finder's ":" and control characters
+  /// would write outside the source folder or fail; they are dropped as the user types.
+  public static func sanitizedSuffix(_ raw: String) -> String {
+    let forbidden = CharacterSet(charactersIn: "/:").union(.newlines).union(.controlCharacters)
+    let kept = raw.unicodeScalars.filter { !forbidden.contains($0) }
+    return String(String.UnicodeScalarView(kept).prefix(maxSuffixLength))
+  }
 
   /// Visually lossless for screen content; much bigger than the compressed preset.
   public static let fullQualityCrf = 18
