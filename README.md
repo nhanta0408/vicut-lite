@@ -40,17 +40,30 @@ A 2-minute screen recording is often 200 MB+, and GitHub only takes 10 MB attach
 ViCut Lite squeezes it under the limit in seconds, keeps text readable, and lets you cut or speed up the parts
 nobody wants to watch.
 
-<p align="center">
-  <img src="docs/screenshots/home-queue.png" width="820" alt="ViCut Lite queue: three screen recordings compressed by 95–99%, with Edit, Show in Finder and Delete actions">
-</p>
+<table>
+  <tr><th>Quick Compress</th></tr>
+  <tr><td align="center"><img src="docs/screenshots/home-queue.png" alt="Queue: three screen recordings compressed by 95–99%, each with Edit, Show in Finder and Delete"></td></tr>
+</table>
+
+<table>
+  <tr><th>Simple Edit with Cut, Speed-up</th></tr>
+  <tr><td align="center"><img src="docs/screenshots/editor.png" alt="Editor: timeline with a cut span, a 2× span and an 8× span, plus one-click Cut, 2× and 4× buttons"></td></tr>
+</table>
+
+### Also in the box
 
 <table>
   <tr>
-    <td width="50%"><img src="docs/screenshots/home-empty.png" alt="Empty Home: one large drop zone, hold Option to open the editor instead"></td>
-    <td width="50%" valign="middle">
-      <b>One drop zone.</b> Drop to compress, hold <kbd>⌥</kbd> to open the editor.<br><br>
-      <b>One glance.</b> Size, saving and output name per video, plus what the whole session saved.
-    </td>
+    <th width="25%">Drop zone while dragging</th>
+    <th width="25%">Working progress card</th>
+    <th width="25%">Live in the menu bar</th>
+    <th width="25%">One drop zone</th>
+  </tr>
+  <tr>
+    <td align="center" valign="top"><img src="docs/screenshots/drop-zone.png" width="200" alt="Floating drop zone in the screen corner while dragging a video: Release to compress"></td>
+    <td align="center" valign="top"><img src="docs/screenshots/progress-card.png" width="200" alt="Progress card after a drop: Compressing 1 video with a progress bar"></td>
+    <td align="center" valign="top"><img src="docs/screenshots/menu-bar.png" width="200" alt="Menu bar popover: drop target, recent jobs, Open ViCut Lite, Settings and Quit"></td>
+    <td align="center" valign="top"><img src="docs/screenshots/home-empty.png" width="200" alt="Empty Home: one large drop zone, hold Option to open the editor instead"></td>
   </tr>
 </table>
 
