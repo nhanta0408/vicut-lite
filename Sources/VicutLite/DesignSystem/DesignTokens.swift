@@ -73,6 +73,40 @@ extension DS {
     static let dangerBg = SwiftUI.Color(hex: 0x2A1410)
     /// Normal span swatch in timeline / list.
     static let spanNormal = SwiftUI.Color(hex: 0x5E584D)
+    /// Hover of solid danger buttons.
+    static let danger400 = SwiftUI.Color(hex: 0xF07A60)
+
+    // Component-specific values from the Queue artboard
+    /// Window outline.
+    static let borderWindow = SwiftUI.Color(hex: 0x2A2722)
+    /// Queue row on hover.
+    static let bgCardHover = SwiftUI.Color(hex: 0x181714)
+    /// Queue row border on hover.
+    static let borderCardHover = SwiftUI.Color(hex: 0x332E25)
+    /// Thumbnail well behind a video frame.
+    static let bgThumb = SwiftUI.Color(hex: 0x1C1A16)
+    /// Thumbnail well border.
+    static let borderThumb = SwiftUI.Color(hex: 0x2A2620)
+    /// Darkens a thumbnail under the progress %.
+    static let bgThumbOverlay = SwiftUI.Color.black.opacity(0.55)
+    /// Duration chip on a thumbnail.
+    static let bgThumbChip = SwiftUI.Color.black.opacity(0.75)
+    /// Progress bar track.
+    static let progressTrack = SwiftUI.Color(hex: 0x24211C)
+    /// Drop zone fill at rest (gold 4 %) and while a drag hovers it.
+    static let goldWash = SwiftUI.Color(hex: 0xE4B53F).opacity(0.04)
+    static let goldWashActive = SwiftUI.Color(hex: 0xE4B53F).opacity(0.10)
+    /// Preset chip, dialog border (muted gold).
+    static let borderGoldMuted = SwiftUI.Color(hex: 0x3A3226)
+    /// Preset chip fill.
+    static let bgChip = SwiftUI.Color(hex: 0x161511)
+    /// Selection bar replacing the footer in select mode.
+    static let bgSelectionBar = SwiftUI.Color(hex: 0x15130F)
+    /// Glow ring and drop shadow under the main primary button.
+    static let goldRing = SwiftUI.Color(hex: 0xF5D27A).opacity(0.4)
+    static let goldGlow = SwiftUI.Color(hex: 0xE4B53F).opacity(0.18)
+    /// Shadow under dialogs and popovers.
+    static let shadowDeep = SwiftUI.Color.black.opacity(0.6)
   }
 }
 
@@ -124,6 +158,10 @@ extension DS {
     /// Badges on gold, duration chip. Timeline ticks use `microRegular`.
     static let micro = TextStyle(size: 11, bold: true, lineHeight: 1.2, tracking: 0, uppercase: false)
     static let microRegular = TextStyle(size: 11, bold: false, lineHeight: 1.2, tracking: 0, uppercase: false)
+    /// Body-size emphasis: dialog / footer button labels, selection count.
+    static let bodyBold = TextStyle(size: 13, bold: true, lineHeight: 1.5, tracking: 0, uppercase: false)
+    /// Duration chip on thumbnails.
+    static let tiny = TextStyle(size: 10, bold: true, lineHeight: 1.2, tracking: 0, uppercase: false)
   }
 }
 
@@ -187,6 +225,81 @@ extension DS {
     static let primaryMin: CGFloat = 36
     /// Title bar height in every window.
     static let titleBar: CGFloat = 48
+    /// Title-bar icon buttons.
+    static let iconButtonSmall: CGFloat = 32
+    /// Icon buttons inside button groups.
+    static let iconButton: CGFloat = 36
+    /// Standalone row / footer buttons.
+    static let buttonLarge: CGFloat = 40
+    /// Dialog buttons and the preset chip.
+    static let buttonDialog: CGFloat = 38
+    /// Padding between a button group's well and its buttons.
+    static let buttonGroupInset: CGFloat = 3
+    /// Queue drop zone height.
+    static let dropZone: CGFloat = 52
+    /// Footer and selection bar height.
+    static let footer: CGFloat = 64
+    /// Queue row thumbnail (square).
+    static let thumbnail: CGFloat = 76
+    /// Progress bar thickness.
+    static let progressBar: CGFloat = 6
+    /// Selection checkbox.
+    static let checkbox: CGFloat = 24
+    /// Confirmation dialog width.
+    static let dialogWidth: CGFloat = 420
+    /// Glyph sizes for SF Symbols.
+    static let glyphSmall: CGFloat = 13
+    static let glyph: CGFloat = 16
+    static let glyphLarge: CGFloat = 18
+    /// Illustration glyph in empty states.
+    static let emptyStateGlyph: CGFloat = 40
+    /// Brand mark in the title bar.
+    static let brandMark: CGFloat = 22
+    /// Hairline divider between title-bar groups.
+    static let dividerHeight: CGFloat = 18
+    /// Space reserved for the macOS traffic-light buttons in a hidden title bar.
+    static let trafficLights: CGFloat = 78
+    /// Tallest file list inside a dialog before it scrolls.
+    static let dialogListMax: CGFloat = 180
+    /// Menu / popover item height.
+    static let menuItem: CGFloat = 32
+    /// ffmpeg log popover.
+    static let logPopover = CGSize(width: 520, height: 260)
+    /// Compression preset popover width.
+    static let presetPopoverWidth: CGFloat = 260
+    /// Queue window default and minimum size.
+    static let queueWindow = CGSize(width: 760, height: 680)
+    static let queueWindowMin = CGSize(width: 600, height: 460)
+  }
+
+  /// Stroke widths.
+  enum Stroke {
+    static let hairline: CGFloat = 1
+    /// Drop zone dash, checkbox outline.
+    static let emphasis: CGFloat = 1.5
+    static let dash: [CGFloat] = [6, 4]
+  }
+
+  /// Opacity for de-emphasised states.
+  enum Opacity {
+    /// Queued rows wait their turn.
+    static let queued: Double = 0.72
+    static let disabled: Double = 0.4
+    /// Checkbox of a row that cannot be selected.
+    static let unavailable: Double = 0.35
+    /// Feedback while a button is held down.
+    static let pressed: Double = 0.85
+  }
+
+  enum Shadow {
+    static let dialogRadius: CGFloat = 30
+    static let dialogY: CGFloat = 12
+    static let glowRadius: CGFloat = 9
+    static let glowY: CGFloat = 3
+  }
+
+  enum Motion {
+    static let quick = Animation.easeOut(duration: 0.15)
   }
 }
 

@@ -32,8 +32,10 @@ struct VicutLiteApp: App {
         .environment(delegate.queue)
         .environment(delegate.settings)
     }
-    .defaultSize(width: 460, height: 560)
+    .defaultSize(DS.Size.queueWindow)
     .windowResizability(.contentMinSize)
+    // MainView draws its own 48 pt title bar (QueueTitleBar).
+    .windowStyle(.hiddenTitleBar)
 
     WindowGroup("Editor", id: WindowID.editor, for: URL.self) { $url in
       if let url {

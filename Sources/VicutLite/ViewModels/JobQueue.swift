@@ -35,6 +35,10 @@ final class Job: Identifiable {
   let settings: CompressSettings
   var state: State = .queued
   let originalBytes: Int64
+  /// When encoding began; drives the remaining-time estimate.
+  var startedAt: Date?
+  /// Set once the user moved the source file to the Trash (only the output remains).
+  var originalTrashed = false
   @ObservationIgnored var task: Task<ExportResult, Error>?
 
   init(input: URL, marks: [Segment], kind: Kind, settings: CompressSettings) {
@@ -52,6 +56,19 @@ final class Job: Identifiable {
     case .queued, .running: false
     }
   }
+
+  var isActive: Bool {
+    !isFinished
+  }
+
+  var result: ExportResult? {
+    if case .done(let result) = state { result } else { nil }
+  }
+
+  /// Only finished jobs whose source still exists can have their original trashed.
+  var canTrashOriginal: Bool {
+    result != nil && !originalTrashed
+  }
 }
 
 /// Runs exports one at a time so a batch drop doesn't fight over CPU.
@@ -61,6 +78,8 @@ final class JobQueue {
   static let supportedExtensions: Set<String> = ["mov", "mp4", "m4v", "mkv", "webm", "avi"]
 
   private(set) var jobs: [Job] = []
+  /// Bytes saved by every export finished since launch, kept even after rows are cleared.
+  private(set) var sessionSavedBytes: Int64 = 0
   @ObservationIgnored private let settings: SettingsStore
   @ObservationIgnored private var worker: Task<Void, Never>?
 
@@ -107,6 +126,22 @@ final class JobQueue {
     jobs.removeAll(where: \.isFinished)
   }
 
+  /// Moves the source files of finished jobs to the Trash (restorable), keeping the outputs.
+  /// Returns the jobs that could not be trashed.
+  @discardableResult
+  func trashOriginals(_ targets: [Job]) -> [Job] {
+    var failed: [Job] = []
+    for job in targets where job.canTrashOriginal {
+      do {
+        try FileManager.default.trashItem(at: job.input, resultingItemURL: nil)
+        job.originalTrashed = true
+      } catch {
+        failed.append(job)
+      }
+    }
+    return failed
+  }
+
   private func startWorkerIfNeeded() {
     guard worker == nil else { return }
     worker = Task { [weak self] in
@@ -131,6 +166,7 @@ final class JobQueue {
     }
 
     job.state = .running(0)
+    job.startedAt = Date()
     let settings = job.settings
     let output = OutputNamer.uniqueOutput(for: job.input, suffix: settings.outputSuffix)
     let request = ExportRequest(input: job.input, output: output, marks: job.marks, settings: settings)
@@ -149,6 +185,7 @@ final class JobQueue {
     do {
       let result = try await task.value
       job.state = .done(result)
+      sessionSavedBytes += max(0, job.originalBytes - result.bytes)
     } catch is CancellationError {
       job.state = .cancelled
     } catch let FFmpegError.failed(exitCode, log) {
