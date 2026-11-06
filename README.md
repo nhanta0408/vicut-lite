@@ -5,13 +5,13 @@ with a simple editor to cut or speed up (2×/4×/8×) the boring parts — e.g. 
 
 ## Use
 
-The window has two independent drop zones:
+Drop videos anywhere in the window (or on the Dock icon) to compress them. Output lands next to the original as
+`name-vicut.mp4`. Drag a finished row into the browser, or right-click → **Copy File** and paste into a GitHub comment.
 
-- **Compress:** drop a `.mov`/`.mp4` here (or on the Dock icon). Output lands next to the original as
-  `name-vicut.mp4`. Use **Copy** and paste into a GitHub comment, or drag the row into the browser.
-- **Cut / Speed up:** drop a video here to open the editor without compressing anything. When done, **Export…**
-  offers **Full quality** (original resolution/fps, no size limit, `name-edited.mp4`) or **Compressed**
+- **Hold ⌥ while dropping** (or use **Edit first** / **Edit** on a row) to open the editor instead. When done,
+  **Export…** offers **Full quality** (original resolution/fps, no size limit, `name-edited.mp4`) or **Compressed**
   (your Settings, `name-vicut.mp4`).
+- **Select** lets you pick finished rows and move their originals to the Trash, keeping the compressed files.
 
 | Key | Action |
 |---|---|

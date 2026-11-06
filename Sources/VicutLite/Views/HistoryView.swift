@@ -132,7 +132,7 @@ struct HistoryItemRow: View {
       RoundedRectangle(cornerRadius: DS.Radius.lg)
         .strokeBorder(DS.Color.borderSubtle, lineWidth: DS.Size.hairline)
     )
-    .opacity(isFound ? 1 : DS.Opacity.unavailable)
+    .opacity(isFound ? 1 : DS.Opacity.missingFile)
     .contentShape(RoundedRectangle(cornerRadius: DS.Radius.lg))
     .onDrag { dragProvider }
     .contextMenu {

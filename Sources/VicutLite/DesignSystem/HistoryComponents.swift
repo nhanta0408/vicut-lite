@@ -99,7 +99,7 @@ private struct GhostChrome<Content: View>: View {
           .strokeBorder(DS.Color.borderDefault, lineWidth: DS.Size.hairline)
       )
       .contentShape(RoundedRectangle(cornerRadius: radius))
-      .opacity(isEnabled ? 1 : DS.Opacity.unavailable)
+      .opacity(isEnabled ? 1 : DS.Opacity.disabled)
       .onHover { isHovered = $0 }
   }
 }
