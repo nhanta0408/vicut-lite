@@ -32,6 +32,14 @@ extension DS.Color {
   static let playhead = SwiftUI.Color.white
   /// Menu / dialog drop shadow.
   static let shadow = SwiftUI.Color.black.opacity(0.55)
+
+  // Spans panel
+  /// Span row at rest and selected.
+  static let spanRowBg = SwiftUI.Color(hex: 0x0F0F0E)
+  static let spanRowBorder = SwiftUI.Color(hex: 0x24211C)
+  static let spanRowSelected = SwiftUI.Color(hex: 0x16140F)
+  /// Time field fill while typing in it.
+  static let timeFieldFocus = SwiftUI.Color(hex: 0x14120E)
 }
 
 extension DS.Space {
@@ -44,6 +52,8 @@ extension DS.Radius {
   static let span: CGFloat = 6
   /// Primary / ghost buttons at 38 pt.
   static let button: CGFloat = 11
+  /// Type bar at the left of a span row.
+  static let spanRowBar: CGFloat = 2
 }
 
 extension DS.Size {
@@ -93,8 +103,22 @@ extension DS.Size {
   /// Icon glyph sizes inside buttons.
   static let icon: CGFloat = 15
   static let iconSmall: CGFloat = 13
-  /// Spans panel width (floating or docked), reserved for the panel seam.
+  /// Spans panel width (floating or docked).
   static let spansPanel: CGFloat = 360
+  /// Spans panel header row.
+  static let spansHeader: CGFloat = 48
+  /// Floating Spans panel shadow (canvas: 0 20 50, blur halved for SwiftUI's radius).
+  static let panelShadowRadius: CGFloat = 25
+  static let panelShadowY: CGFloat = 20
+  /// Type bar at the left of a span row.
+  static let spanRowBar: CGFloat = 4
+  /// Start / end time inputs in a span row.
+  static let timeFieldWidth: CGFloat = 62
+  static let timeFieldHeight: CGFloat = 28
+  /// Arrow between the start and end fields.
+  static let iconTiny: CGFloat = 11
+  /// Per-row span type menu.
+  static let spanTypeMenu: CGFloat = 180
   /// Editor window minimum.
   static let editorMinWidth: CGFloat = 820
   static let editorMinHeight: CGFloat = 560

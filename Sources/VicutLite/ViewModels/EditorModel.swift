@@ -14,6 +14,8 @@ final class EditorModel {
   /// Length of a span added from the edit menu at the playhead.
   static let newSpanLength = 3.0
   static let toastDuration = Duration.milliseconds(3200)
+  /// Typed times are shown to 0.1 s, so anything within half a tenth counts as unchanged.
+  static let typedTimeTolerance = 0.05
 
   struct Thumbnail {
     let range: ClosedRange<Double>
@@ -43,9 +45,11 @@ final class EditorModel {
   private(set) var toast: EditorToast?
   /// Set when an edit would wipe out whole cut / speed parts; the view asks before applying.
   private(set) var pendingReplace: PendingReplace?
-  /// Seam for the Spans list panel (not built yet): the timeline toggle flips it, the layout
-  /// reserves a docked slot and a floating overlay for it.
+  /// The timeline toggle opens it floating; the panel's pin button docks it.
   var spansPanel: SpansPanelMode = .closed
+  /// The Spans panel time field being typed in. While set, the single-key shortcuts are off so
+  /// typing "2" or "1:04" doesn't retype spans; timeline clicks and playback clear it.
+  var focusedTimeField: SpanTimeField?
   /// Skip cut parts and fast-forward speed parts while playing, so the preview matches the export.
   var previewEdits = true
 
@@ -159,6 +163,7 @@ final class EditorModel {
   }
 
   func togglePlay() {
+    focusedTimeField = nil
     if isPlaying {
       player.pause()
       isPlaying = false
@@ -198,6 +203,7 @@ final class EditorModel {
   }
 
   func select(from a: Double, to b: Double) {
+    focusedTimeField = nil
     let lower = min(max(min(a, b), 0), duration)
     let upper = min(max(max(a, b), 0), duration)
     selection = upper - lower >= Self.minSelection ? lower...upper : nil
@@ -205,6 +211,12 @@ final class EditorModel {
   }
 
   func selectSpan(at time: Double) {
+    focusedTimeField = nil
+    highlightSpan(at: time)
+  }
+
+  /// Selects without ending text editing, for when a Spans panel time field takes focus.
+  func highlightSpan(at time: Double) {
     selection = nil
     pendingIn = nil
     selectedSpanTime = min(max(time, 0), duration)
@@ -220,6 +232,25 @@ final class EditorModel {
     paint(target.range, with: action)
   }
 
+  /// Moves `span`'s edges to `range`, keeping its type. Typed times go through the same overlap
+  /// rules as painting: neighbours partly covered are trimmed, fully covered ones ask first.
+  func retime(_ span: Segment, to range: ClosedRange<Double>) {
+    guard range.lowerBound >= 0, range.upperBound <= duration + Self.typedTimeTolerance,
+          range.upperBound - range.lowerBound >= Self.minSelection else {
+      rejectTypedTime()
+      return
+    }
+    let clamped = range.lowerBound...min(range.upperBound, duration)
+    let moved = abs(clamped.lowerBound - span.start) > Self.typedTimeTolerance
+      || abs(clamped.upperBound - span.end) > Self.typedTimeTolerance
+    guard moved else { return }
+    paint(clamped, with: span.action, over: Timeline.releasing(span, marks: marks))
+  }
+
+  func rejectTypedTime() {
+    flash("Invalid time. Use m:ss.s within 0:00–\(Formatters.duration(duration)), start before end.", isError: true)
+  }
+
   /// Adds a short span starting at the playhead, as offered by the edit menu.
   func addAtPlayhead(_ action: SegmentAction) {
     let end = min(currentTime + Self.newSpanLength, duration)
@@ -233,29 +264,32 @@ final class EditorModel {
   func confirmPendingReplace() {
     guard let pending = pendingReplace else { return }
     pendingReplace = nil
-    commit(pending.range, with: pending.action, trimmed: pending.impact.trimmed)
+    commit(pending.range, with: pending.action, over: pending.base, trimmed: pending.impact.trimmed)
   }
 
   func cancelPendingReplace() {
     pendingReplace = nil
   }
 
-  private func paint(_ range: ClosedRange<Double>, with action: SegmentAction) {
-    let candidate = marks + [Segment(start: range.lowerBound, end: range.upperBound, action: action)]
+  /// `base` is the marks to paint on top of; a retime passes marks with the old span released.
+  private func paint(_ range: ClosedRange<Double>, with action: SegmentAction, over base: [Segment]? = nil) {
+    let base = base ?? marks
+    let candidate = base + [Segment(start: range.lowerBound, end: range.upperBound, action: action)]
     guard (try? Timeline.normalize(marks: candidate, duration: duration)) != nil else {
       flash("That would cut the whole clip.", isError: true)
       return
     }
-    let impact = Timeline.overlap(of: range, action: action, marks: marks, duration: duration)
+    let impact = Timeline.overlap(of: range, action: action, marks: base, duration: duration)
     if !impact.covered.isEmpty {
-      pendingReplace = PendingReplace(range: range, action: action, impact: impact)
+      pendingReplace = PendingReplace(range: range, action: action, impact: impact, base: base)
       return
     }
-    commit(range, with: action, trimmed: impact.trimmed)
+    commit(range, with: action, over: base, trimmed: impact.trimmed)
   }
 
-  private func commit(_ range: ClosedRange<Double>, with action: SegmentAction, trimmed: [Segment]) {
+  private func commit(_ range: ClosedRange<Double>, with action: SegmentAction, over base: [Segment], trimmed: [Segment]) {
     undoStack.append(marks)
+    marks = base
     marks.append(Segment(start: range.lowerBound, end: range.upperBound, action: action))
     selection = nil
     pendingIn = nil
@@ -400,6 +434,14 @@ struct PendingReplace: Equatable {
   let range: ClosedRange<Double>
   let action: SegmentAction
   let impact: OverlapImpact
+  /// Marks the edit is painted on; differs from the current marks when a span is being moved.
+  let base: [Segment]
+}
+
+/// One of the start / end time fields in the Spans panel, by row.
+struct SpanTimeField: Hashable {
+  let row: Int
+  let isEnd: Bool
 }
 
 /// Mirrors the canvas `panel` prop: hidden, floating over the stage, or docked beside it.
