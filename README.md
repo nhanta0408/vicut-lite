@@ -23,6 +23,20 @@ A 2-minute screen recording from macOS is often 200 MB+, and GitHub only accepts
 ViCut Lite squeezes it under the limit in a few seconds, keeps text readable, and lets you cut or speed up the
 parts nobody wants to watch (like waiting for an AI to think).
 
+<p align="center">
+  <img src="docs/screenshots/home-queue.png" width="820" alt="ViCut Lite queue: three screen recordings compressed by 95–99%, with Edit, Show in Finder and Delete actions">
+</p>
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/home-empty.png" alt="Empty Home: one large drop zone, hold Option to open the editor instead"></td>
+    <td width="50%" valign="middle">
+      <b>One drop zone.</b> Drop to compress, hold <kbd>⌥</kbd> to open the editor.<br><br>
+      <b>One glance.</b> Size, saving and output name per video, plus what the whole session saved.
+    </td>
+  </tr>
+</table>
+
 ## Features
 
 - **Drop to compress.** Drop videos on the window or the Dock icon. Output lands next to the original as
@@ -102,7 +116,7 @@ Requires Xcode 16+ (Swift 6), macOS 14+ and Apple Silicon.
 git clone https://github.com/nhanta0408/vicut-lite.git && cd vicut-lite
 swift test                     # unit + integration tests
 ./scripts/build-app.sh         # → dist/ViCut Lite.app (downloads a pinned static ffmpeg 9.0.2 into vendor/bin)
-./scripts/make-dmg.sh          # → dist/ViCut-Lite-0.1.0.dmg
+./scripts/make-dmg.sh          # → dist/ViCut-Lite-1.0.0.dmg
 swift run VicutLite            # run unbundled (ffmpeg from vendor/bin, Homebrew or $VICUT_FFMPEG_DIR)
 ```
 
