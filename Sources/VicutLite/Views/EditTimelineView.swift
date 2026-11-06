@@ -2,7 +2,7 @@ import AppKit
 import SwiftUI
 import VicutCore
 
-/// Zoomable timeline: ruler, thumbnail track with marks/selection, and an overview bar when zoomed.
+/// Zoomable span track (normal filmstrip / cut hatch / speed fill), ruler, and an overview bar when zoomed.
 struct EditTimelineView: View {
   let model: EditorModel
   @State private var dragSnapPoints: [Double]?
@@ -12,26 +12,30 @@ struct EditTimelineView: View {
   @State private var scrollMonitor: Any?
   @State private var pinchBase: CGFloat?
 
-  private let trackHeight: CGFloat = 72
-  private let rulerHeight: CGFloat = 18
-  private let overviewHeight: CGFloat = 14
   private static let minTickSpacing = 70.0
   /// Dragging this close to an edge scrolls the zoomed view.
   private static let autoScrollEdge: CGFloat = 8
   private static let autoScrollShare = 0.03
+  /// A press that moves less than this is a click (select span + seek), not a range drag.
+  private static let clickSlop: CGFloat = 3
+  /// Tags are hidden on blocks narrower than this so they don't spill over neighbours.
+  private static let minTagWidth: CGFloat = 24
+  private static let tagTracking: CGFloat = 0.6
+  /// Spans this far past the visible edges are still laid out so rings and corners clip cleanly.
+  private static let offscreenMargin: CGFloat = 12
+  private static let selectionFillOpacity = 0.2
+  /// Keeps the overview math finite before the clip's duration has loaded.
+  private static let minOverviewDuration = 0.001
 
   var body: some View {
-    VStack(spacing: 4) {
+    VStack(spacing: DS.Space.s1_5) {
       GeometryReader { geo in
         let width = geo.size.width
-        VStack(spacing: 2) {
-          ruler(width: width)
-          track(width: width)
-        }
-        .onAppear { pointer.width = width }
-        .onChange(of: width) { _, new in pointer.width = new }
+        track(width: width)
+          .onAppear { pointer.width = width }
+          .onChange(of: width) { _, new in pointer.width = new }
       }
-      .frame(height: rulerHeight + 2 + trackHeight)
+      .frame(height: DS.Size.timelineTrack)
       .onContinuousHover { phase in
         if case .active(let point) = phase {
           pointer.hoverX = point.x
@@ -40,37 +44,195 @@ struct EditTimelineView: View {
         }
       }
 
+      GeometryReader { geo in
+        ruler(width: geo.size.width)
+      }
+      .frame(height: DS.Size.timelineRuler)
+
       if model.viewport.isZoomed {
         GeometryReader { geo in
           overview(width: geo.size.width)
         }
-        .frame(height: overviewHeight)
+        .frame(height: DS.Size.timelineOverview)
       }
     }
     .onAppear(perform: installScrollMonitor)
     .onDisappear(perform: removeScrollMonitor)
   }
 
-  // MARK: Ruler
+  // MARK: Track
+
+  private func track(width: CGFloat) -> some View {
+    let spans = model.resolved
+    let height = DS.Size.timelineTrack
+    return ZStack(alignment: .topLeading) {
+      spanFills(spans, width: width, height: height)
+        .frame(width: width, height: height)
+        .clipped()
+
+      if let span = model.selection == nil ? model.selectedSpan : nil, let frame = blockFrame(span, width: width) {
+        // The glow may spill above / below the track but not past its sides, so a span running
+        // off-screen doesn't paint into the window padding.
+        let glow = DS.Size.selectionGlow
+        ZStack(alignment: .topLeading) {
+          selectionRing(width: frame.width, height: height)
+            .offset(x: frame.minX + glow, y: glow)
+        }
+        .frame(width: width + glow * 2, height: height + glow * 2, alignment: .topLeading)
+        .clipped()
+        .offset(x: -glow, y: -glow)
+        .allowsHitTesting(false)
+      }
+
+      if let selection = model.selection, let frame = rangeFrame(selection, width: width) {
+        RoundedRectangle(cornerRadius: DS.Radius.span)
+          .fill(DS.Color.gold500.opacity(Self.selectionFillOpacity))
+          .overlay(
+            RoundedRectangle(cornerRadius: DS.Radius.span)
+              .strokeBorder(DS.Color.gold500, lineWidth: DS.Size.selectionRing)
+          )
+          .frame(width: max(frame.width, DS.Size.selectionRing * 2), height: height)
+          .offset(x: frame.minX)
+          .allowsHitTesting(false)
+      }
+
+      if let guide = model.snapGuide, (0...width).contains(x(guide, width)) {
+        Rectangle()
+          .fill(DS.Color.gold300)
+          .frame(width: DS.Size.snapGuideWidth, height: height)
+          .offset(x: x(guide, width) - DS.Size.snapGuideWidth / 2)
+          .allowsHitTesting(false)
+      }
+
+      playhead(width: width, height: height)
+    }
+    .frame(width: width, height: height, alignment: .topLeading)
+    .contentShape(Rectangle())
+    .gesture(dragGesture(width: width))
+    .simultaneousGesture(pinchGesture(width: width))
+    .accessibilityElement(children: .ignore)
+    .accessibilityLabel("Timeline")
+    .accessibilityValue(accessibilitySummary(spans))
+    .help("Click a span to select it · drag to select a range (snaps to edges, ⌘ = no snap)")
+  }
+
+  /// Filmstrip + thumbnails under every span, masked to the span blocks; cut / speed fills on top.
+  @ViewBuilder
+  private func spanFills(_ spans: [Segment], width: CGFloat, height: CGFloat) -> some View {
+    let blocks = spans.compactMap { span in blockFrame(span, width: width).map { (span, $0) } }
+    ZStack(alignment: .topLeading) {
+      ZStack(alignment: .topLeading) {
+        Rectangle().fill(DS.Color.spanFilmFrame)
+        EditorKit.StripePattern(bar: DS.Size.filmFrame, gap: DS.Size.filmGap)
+          .fill(DS.Color.spanFilmGap)
+        ForEach(Array(model.thumbnails.enumerated()), id: \.offset) { _, thumb in
+          Image(decorative: thumb.image, scale: 1)
+            .resizable()
+            .aspectRatio(contentMode: .fill)
+            .frame(width: max(x(thumb.range.upperBound, width) - x(thumb.range.lowerBound, width), 1), height: height)
+            .clipped()
+            .offset(x: x(thumb.range.lowerBound, width))
+        }
+        .opacity(DS.Color.spanThumbOpacity)
+      }
+      .mask(alignment: .topLeading) {
+        ZStack(alignment: .topLeading) {
+          ForEach(blocks, id: \.0) { _, frame in
+            RoundedRectangle(cornerRadius: DS.Radius.span)
+              .frame(width: frame.width, height: height)
+              .offset(x: frame.minX)
+          }
+        }
+        .frame(width: width, height: height, alignment: .topLeading)
+      }
+
+      ForEach(blocks, id: \.0) { span, frame in
+        spanBlock(span, width: frame.width, height: height)
+          .offset(x: frame.minX)
+      }
+    }
+  }
+
+  @ViewBuilder
+  private func spanBlock(_ span: Segment, width: CGFloat, height: CGFloat) -> some View {
+    let shape = RoundedRectangle(cornerRadius: DS.Radius.span)
+    ZStack {
+      switch span.action {
+      case .keep:
+        Color.clear
+      case .cut:
+        shape.fill(DS.Color.spanCutBase)
+        EditorKit.HatchPattern(stripe: DS.Size.hatchStripe, gap: DS.Size.hatchGap)
+          .fill(DS.Color.spanCutStripe)
+          .clipShape(shape)
+      case .speed:
+        shape.fill(DS.Color.spanSpeedFill)
+      }
+      if let tag = span.action.tag, width >= Self.minTagWidth {
+        Text(tag)
+          .dsText(DS.Typography.micro)
+          .tracking(Self.tagTracking)
+          .foregroundStyle(span.action == .cut ? DS.Color.spanCutLabel : DS.Color.gold300)
+          .lineLimit(1)
+      }
+    }
+    .frame(width: width, height: height)
+    .allowsHitTesting(false)
+  }
+
+  private func selectionRing(width: CGFloat, height: CGFloat) -> some View {
+    let ring = DS.Size.selectionRing
+    let glow = DS.Size.selectionGlow
+    return ZStack {
+      RoundedRectangle(cornerRadius: DS.Radius.span + glow)
+        .strokeBorder(DS.Color.goldGlow, lineWidth: glow - ring)
+        .padding(-glow)
+      RoundedRectangle(cornerRadius: DS.Radius.span + ring)
+        .strokeBorder(DS.Color.gold300, lineWidth: ring)
+        .padding(-ring)
+    }
+    .frame(width: width, height: height)
+  }
+
+  private func playhead(width: CGFloat, height: CGFloat) -> some View {
+    let px = x(model.currentTime, width)
+    let overhang = DS.Size.playheadOverhang
+    let head = DS.Size.playheadHead
+    let line = DS.Size.playheadWidth
+    return ZStack(alignment: .top) {
+      Rectangle()
+        .fill(DS.Color.playhead)
+        .frame(width: line, height: height + overhang * 2)
+      RoundedRectangle(cornerRadius: DS.Radius.xs)
+        .fill(DS.Color.playhead)
+        .frame(width: head, height: head)
+    }
+    .frame(width: head, height: height + overhang * 2, alignment: .top)
+    .offset(x: px - head / 2, y: -overhang)
+    .opacity((0...width).contains(px) ? 1 : 0)
+    .allowsHitTesting(false)
+  }
+
+  // MARK: Ruler (labels under the track)
 
   private func ruler(width: CGFloat) -> some View {
     let viewport = model.viewport
     let interval = TimelineRuler.tickInterval(span: viewport.span, width: width, minSpacing: Self.minTickSpacing)
     let ticks = TimelineRuler.ticks(start: viewport.start, end: viewport.end, interval: interval)
+    let inset = Self.minTickSpacing / 4
     return ZStack(alignment: .topLeading) {
       ForEach(ticks, id: \.self) { tick in
-        HStack(spacing: 3) {
-          Rectangle().fill(Color.secondary.opacity(0.6)).frame(width: 1, height: rulerHeight)
-          Text(Self.label(tick, interval: interval))
-            .font(.system(size: 10).monospacedDigit())
-            .foregroundStyle(.secondary)
-            .fixedSize()
-        }
-        .offset(x: x(tick, width))
+        Text(Self.label(tick, interval: interval))
+          .dsText(DS.Typography.microRegular)
+          .foregroundStyle(DS.Color.textFaint)
+          .monospacedDigit()
+          .fixedSize()
+          .position(x: min(max(x(tick, width), inset), width - inset), y: DS.Size.timelineRuler / 2)
       }
     }
-    .frame(width: width, height: rulerHeight, alignment: .topLeading)
+    .frame(width: width, height: DS.Size.timelineRuler, alignment: .topLeading)
     .clipped()
+    .accessibilityHidden(true)
   }
 
   private static func label(_ seconds: Double, interval: Double) -> String {
@@ -82,98 +244,35 @@ struct EditTimelineView: View {
     return String(format: "%d:%02d", minutes, Int(secs.rounded()))
   }
 
-  // MARK: Track
-
-  private func track(width: CGFloat) -> some View {
-    ZStack(alignment: .topLeading) {
-      Rectangle().fill(Color.black.opacity(0.6))
-      ForEach(Array(model.thumbnails.enumerated()), id: \.offset) { _, thumb in
-        Image(decorative: thumb.image, scale: 1)
-          .resizable()
-          .aspectRatio(contentMode: .fill)
-          .frame(width: max(x(thumb.range.upperBound, width) - x(thumb.range.lowerBound, width), 1), height: trackHeight)
-          .clipped()
-          .offset(x: x(thumb.range.lowerBound, width))
-      }
-      ForEach(model.resolved.filter { $0.action != .keep }, id: \.self) { segment in
-        segmentOverlay(segment, width: width)
-      }
-      if let selection = model.selection {
-        Rectangle()
-          .fill(Color.accentColor.opacity(0.25))
-          .overlay(Rectangle().strokeBorder(Color.accentColor, lineWidth: 2))
-          .frame(width: max(x(selection.upperBound, width) - x(selection.lowerBound, width), 2), height: trackHeight)
-          .offset(x: x(selection.lowerBound, width))
-      }
-      if let guide = model.snapGuide {
-        Rectangle()
-          .fill(Color.yellow)
-          .frame(width: 2, height: trackHeight)
-          .offset(x: x(guide, width) - 1)
-      }
-      Rectangle()
-        .fill(Color.white)
-        .shadow(radius: 1)
-        .frame(width: 2, height: trackHeight)
-        .offset(x: x(model.currentTime, width) - 1)
-    }
-    .frame(width: width, height: trackHeight, alignment: .topLeading)
-    .clipShape(RoundedRectangle(cornerRadius: 6))
-    .contentShape(Rectangle())
-    .gesture(dragGesture(width: width))
-    .simultaneousGesture(pinchGesture(width: width))
-  }
-
-  private func segmentOverlay(_ segment: Segment, width: CGFloat) -> some View {
-    let isCut = segment.action == .cut
-    let label: String
-    if case .speed(let factor) = segment.action {
-      label = Formatters.speed(factor)
-    } else {
-      label = "CUT"
-    }
-    return ZStack {
-      Rectangle().fill(isCut ? Color.red.opacity(0.55) : Color.orange.opacity(0.45))
-      if isCut {
-        Image(systemName: "scissors").foregroundStyle(.white)
-      }
-      Text(label)
-        .font(.caption.bold())
-        .foregroundStyle(.white)
-        .padding(.horizontal, 4)
-        .background(Capsule().fill(Color.black.opacity(0.4)))
-        .offset(y: isCut ? 20 : 0)
-    }
-    .frame(width: max(x(segment.end, width) - x(segment.start, width), 1), height: trackHeight)
-    .offset(x: x(segment.start, width))
-    .allowsHitTesting(false)
-  }
-
   // MARK: Overview (whole clip, only when zoomed)
 
   private func overview(width: CGFloat) -> some View {
-    let duration = max(model.duration, 0.001)
+    let duration = max(model.duration, Self.minOverviewDuration)
     let viewport = model.viewport
+    let height = DS.Size.timelineOverview
     let full: (Double) -> CGFloat = { CGFloat($0 / duration) * width }
     return ZStack(alignment: .topLeading) {
-      RoundedRectangle(cornerRadius: 3).fill(Color.secondary.opacity(0.2))
+      RoundedRectangle(cornerRadius: DS.Radius.xs)
+        .fill(DS.Color.bgApp)
+        .overlay(RoundedRectangle(cornerRadius: DS.Radius.xs).strokeBorder(DS.Color.borderDefault, lineWidth: DS.Size.hairline))
       ForEach(model.resolved.filter { $0.action != .keep }, id: \.self) { segment in
         Rectangle()
-          .fill(segment.action == .cut ? Color.red.opacity(0.7) : Color.orange.opacity(0.7))
-          .frame(width: max(full(segment.end) - full(segment.start), 1), height: overviewHeight)
+          .fill(segment.action.swatch)
+          .frame(width: max(full(segment.end) - full(segment.start), 1), height: height)
           .offset(x: full(segment.start))
       }
       Rectangle()
-        .fill(Color.white)
-        .frame(width: 1, height: overviewHeight)
+        .fill(DS.Color.playhead)
+        .frame(width: DS.Size.hairline, height: height)
         .offset(x: full(model.currentTime))
-      RoundedRectangle(cornerRadius: 3)
-        .strokeBorder(Color.accentColor, lineWidth: 2)
-        .background(RoundedRectangle(cornerRadius: 3).fill(Color.accentColor.opacity(0.15)))
-        .frame(width: max(full(viewport.end) - full(viewport.start), 6), height: overviewHeight)
+      RoundedRectangle(cornerRadius: DS.Radius.xs)
+        .fill(DS.Color.goldTint)
+        .overlay(RoundedRectangle(cornerRadius: DS.Radius.xs).strokeBorder(DS.Color.gold500, lineWidth: DS.Size.selectionRing))
+        .frame(width: max(full(viewport.end) - full(viewport.start), DS.Size.swatch), height: height)
         .offset(x: full(viewport.start))
     }
-    .frame(width: width, height: overviewHeight, alignment: .topLeading)
+    .frame(width: width, height: height, alignment: .topLeading)
+    .clipShape(RoundedRectangle(cornerRadius: DS.Radius.xs))
     .contentShape(Rectangle())
     .gesture(
       DragGesture(minimumDistance: 0).onChanged { value in
@@ -196,15 +295,16 @@ struct EditTimelineView: View {
         autoScroll(at: value.location.x, width: width)
         let start = dragAnchor ?? time(value.startLocation.x, width)
         let current = snapped(time(value.location.x, width), width: width, showGuide: true)
-        if abs(value.translation.width) > 3 {
+        if abs(value.translation.width) > Self.clickSlop {
           model.select(from: start, to: current)
         }
         model.seek(to: current)
       }
       .onEnded { value in
-        if abs(value.translation.width) <= 3 {
-          model.selection = nil
-          model.seek(to: time(value.location.x, width))
+        if abs(value.translation.width) <= Self.clickSlop {
+          let clicked = time(value.location.x, width)
+          model.selectSpan(at: clicked)
+          model.seek(to: clicked)
         }
         dragSnapPoints = nil
         dragAnchor = nil
@@ -285,6 +385,34 @@ struct EditTimelineView: View {
   private func time(_ x: CGFloat, _ width: CGFloat) -> Double {
     guard width > 0 else { return 0 }
     return model.viewport.time(atFraction: Double(x / width))
+  }
+
+  /// On-screen frame of a span block (with gutters), clamped just past the visible edges.
+  private func blockFrame(_ span: Segment, width: CGFloat) -> CGRect? {
+    let gutter = DS.Size.spanGutter
+    return clampedFrame(from: x(span.start, width) + gutter, to: x(span.end, width) - gutter, width: width)
+  }
+
+  private func rangeFrame(_ range: ClosedRange<Double>, width: CGFloat) -> CGRect? {
+    clampedFrame(from: x(range.lowerBound, width), to: x(range.upperBound, width), width: width, margin: 0)
+  }
+
+  private func clampedFrame(
+    from minX: CGFloat,
+    to maxX: CGFloat,
+    width: CGFloat,
+    margin: CGFloat = Self.offscreenMargin
+  ) -> CGRect? {
+    let lower = max(minX, -margin)
+    let upper = min(max(maxX, minX + DS.Size.hairline), width + margin)
+    guard upper > lower else { return nil }
+    return CGRect(x: lower, y: 0, width: upper - lower, height: DS.Size.timelineTrack)
+  }
+
+  private func accessibilitySummary(_ spans: [Segment]) -> String {
+    spans.filter { $0.action != .keep }
+      .map { "\($0.action.title) \(EditorModel.rangeText($0.start...$0.end))" }
+      .joined(separator: ", ")
   }
 }
 
