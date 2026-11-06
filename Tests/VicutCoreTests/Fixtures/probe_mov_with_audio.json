@@ -1,0 +1,23 @@
+{
+  "streams": [
+    {
+      "codec_type": "video",
+      "codec_name": "h264",
+      "width": 640,
+      "height": 400,
+      "avg_frame_rate": "60/1",
+      "r_frame_rate": "60/1"
+    },
+    {
+      "codec_type": "audio",
+      "codec_name": "aac",
+      "avg_frame_rate": "0/0",
+      "r_frame_rate": "0/0"
+    }
+  ],
+  "format": {
+    "format_name": "mov,mp4,m4a,3gp,3g2,mj2",
+    "duration": "2.000000",
+    "size": "318774"
+  }
+}

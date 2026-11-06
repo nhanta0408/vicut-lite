@@ -1,0 +1,6 @@
+.build/
+.swiftpm/
+vendor/
+dist/
+.DS_Store
+.code-review-graph/
