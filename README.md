@@ -87,7 +87,7 @@ git clone https://github.com/nhanta0408/vicut-lite.git && cd vicut-lite
 ./scripts/build-app.sh   # → dist/ViCut Lite.app  (Xcode 16+, macOS 14+, Apple Silicon)
 ```
 
-Issues and pull requests are welcome. Branch from `develop` and keep `swift test` green.
+Issues and pull requests are welcome; see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 

@@ -1,0 +1,50 @@
+name: Bug report
+description: Something doesn't work as expected
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What you did, what you expected, and what you got instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Drop a 2-minute screen recording on the window
+        2. …
+    validations:
+      required: true
+  - type: textarea
+    id: video
+    attributes:
+      label: Video details
+      description: Source resolution, length, size and how it was recorded (macOS screenshot tool, QuickTime, iPhone…). Attach the file if you can share it.
+  - type: textarea
+    id: settings
+    attributes:
+      label: Settings
+      description: Target size, quality, resolution, fps, encoder (Fast / Light).
+  - type: input
+    id: version
+    attributes:
+      label: ViCut Lite version
+      placeholder: "1.1.0"
+    validations:
+      required: true
+  - type: input
+    id: macos
+    attributes:
+      label: macOS version and Mac
+      placeholder: "macOS 15.3, MacBook Pro M3"
+    validations:
+      required: true
+  - type: textarea
+    id: log
+    attributes:
+      label: Log
+      description: If a job failed, click the log button on its row and paste the ffmpeg log here.
+      render: text
