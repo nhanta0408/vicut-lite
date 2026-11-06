@@ -40,7 +40,9 @@ public enum BitratePlanner {
   /// Container overhead headroom so the muxed file lands under the target.
   static let sizeHeadroom = 0.95
   /// Below this bits-per-pixel, h264 turns screen text to mush; trade resolution for clarity instead.
-  static let minBitsPerPixel = 0.02
+  /// Screen recordings are mostly static, so they stay sharp far lower than camera footage: on a Retina
+  /// recording, 1280 px at 0.0126 bpp beat 960 px at the same bitrate, so the cut-off sits just below that.
+  static let minBitsPerPixel = 0.01
   static let resolutionLadder = [1920, 1280, 960, 640]
   static let minVideoKbps = 100
   static let monoAudioKbps = 64

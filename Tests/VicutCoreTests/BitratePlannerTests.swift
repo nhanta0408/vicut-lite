@@ -31,6 +31,17 @@ struct BitratePlannerTests {
     #expect(plan.height == 800)
   }
 
+  /// A 3-minute Retina recording: at 10 MB it keeps 1280 px (was 960), at 25 MB the full 1920 px (was 1280).
+  @Test func longRetinaRecordingStepsDownOnlyOnce() {
+    let src = info(w: 3016, h: 1766, fps: 60, duration: 178.4, size: 162_000_000)
+    let tight = BitratePlanner.plan(source: src, outputDuration: 178.4, settings: .default, edited: false)
+    #expect(tight.width == 1280)
+    var roomy = CompressSettings.default
+    roomy.targetBytes = CompressSettings.largeTargetBytes
+    let plan = BitratePlanner.plan(source: src, outputDuration: 178.4, settings: roomy, edited: false)
+    #expect(plan.width == 1920)
+  }
+
   @Test func shortClipKeeps1080pClassDimensions() {
     var settings = CompressSettings.default
     settings.audio = .strip
