@@ -4,7 +4,14 @@ import SwiftUI
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
   let settings = SettingsStore()
-  lazy var queue = JobQueue(settings: settings)
+  let history = HistoryStore()
+  lazy var queue: JobQueue = {
+    let queue = JobQueue(settings: settings)
+    queue.onJobFinished = { [history] job, result in
+      history.record(output: result.output, originalBytes: job.originalBytes, outputBytes: result.bytes)
+    }
+    return queue
+  }()
 
   func applicationDidFinishLaunching(_ notification: Notification) {
     // Needed when launched as a bare executable (`swift run`) rather than from the .app bundle.
@@ -31,9 +38,12 @@ struct VicutLiteApp: App {
       MainView()
         .environment(delegate.queue)
         .environment(delegate.settings)
+        .environment(delegate.history)
     }
-    .defaultSize(width: 460, height: 560)
+    .defaultSize(DS.Size.queueWindow)
     .windowResizability(.contentMinSize)
+    // MainView draws its own 48 pt title bar (QueueTitleBar).
+    .windowStyle(.hiddenTitleBar)
 
     WindowGroup("Editor", id: WindowID.editor, for: URL.self) { $url in
       if let url {
@@ -47,6 +57,7 @@ struct VicutLiteApp: App {
     Settings {
       SettingsView()
         .environment(delegate.settings)
+        .frame(width: DS.Size.settingsWindowWidth, height: DS.Size.settingsWindowHeight)
     }
   }
 }

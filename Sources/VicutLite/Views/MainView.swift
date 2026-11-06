@@ -1,85 +1,254 @@
+import AppKit
 import SwiftUI
 import UniformTypeIdentifiers
 
+/// The Queue window: title bar over Home (drop bar, job list, footer / selection bar) or a
+/// full-window History / Settings page, with the side tab bar sliding over either.
 struct MainView: View {
   @Environment(JobQueue.self) private var queue
-  @Environment(SettingsStore.self) private var settings
   @Environment(\.openWindow) private var openWindow
-  @State private var importAction: DropAction?
+  @Environment(\.accessibilityReduceMotion) private var reduceMotion
+  @State private var page: QueuePage = .home
+  @State private var isImporting = false
+  @State private var isDropTargeted = false
+  /// ⌥ state while a drag hovers Home, so the drop zone can say what releasing will do.
+  @State private var isOptionHeld = false
+  @State private var isSelecting = false
+  @State private var selection: Set<Job.ID> = []
+  /// Jobs waiting for the "Move to Trash?" confirmation; nil when the dialog is closed.
+  @State private var trashCandidates: [Job]?
+  @State private var isSidebarVisible = false
+  /// File names that could not be trashed (e.g. moved or on a read-only volume).
+  @State private var trashFailures: [String] = []
 
   var body: some View {
     VStack(spacing: 0) {
-      if queue.jobs.isEmpty {
-        dropZones(compact: false)
-          .padding(16)
-      } else {
-        dropZones(compact: true)
-          .padding(.horizontal, 16)
-          .padding(.vertical, 10)
-        jobList
-      }
-      Divider()
-      footer
+      QueueTitleBar(
+        doneCount: queue.jobs.filter { $0.result != nil }.count,
+        activeCount: queue.jobs.filter(\.isActive).count,
+        page: page,
+        isSidebarVisible: Binding(get: { isSidebarVisible }, set: { setSidebar($0) }),
+        onHome: { navigate(to: .home) }
+      )
+      pageContent
+        .overlay(alignment: .leading) { sideTabBar }
+        .background { escapeShortcut }
     }
-    .frame(minWidth: 520, minHeight: 440)
+    .frame(minWidth: DS.Size.queueWindowMin.width, minHeight: DS.Size.queueWindowMin.height)
+    .background(DS.Color.bgApp)
+    .ignoresSafeArea(.container, edges: .top)
+    .preferredColorScheme(.dark)
+    .dsDialog(isPresented: trashCandidates != nil, onDismiss: { trashCandidates = nil }) {
+      TrashOriginalsDialog(
+        jobs: trashCandidates ?? [],
+        onCancel: { trashCandidates = nil },
+        onConfirm: confirmTrash
+      )
+    }
     .fileImporter(
-      isPresented: Binding(get: { importAction != nil }, set: { if !$0 { importAction = nil } }),
+      isPresented: $isImporting,
       allowedContentTypes: [.movie],
       allowsMultipleSelection: true
     ) { result in
-      if case .success(let urls) = result, let action = importAction {
-        _ = handle(urls, action: action)
+      // The picker only compresses; ⌥-drop is the single way into the editor from Home.
+      if case .success(let urls) = result {
+        _ = handle(urls, action: .compress)
       }
-      importAction = nil
+    }
+    .alert(
+      "Couldn't move \(trashFailures.count == 1 ? "the original" : "\(trashFailures.count) originals") to Trash",
+      isPresented: Binding(get: { !trashFailures.isEmpty }, set: { if !$0 { trashFailures = [] } })
+    ) {
+      Button("OK", role: .cancel) { trashFailures = [] }
+    } message: {
+      Text(trashFailures.joined(separator: "\n"))
+    }
+    .onChange(of: queue.jobs.map(\.id)) { _, ids in
+      selection.formIntersection(ids)
     }
   }
 
-  private func dropZones(compact: Bool) -> some View {
-    HStack(spacing: 12) {
-      ForEach([DropAction.compress, .edit], id: \.self) { action in
-        DropZoneView(
-          action: action,
-          compact: compact,
-          onDrop: { handle($0, action: action) },
-          onChoose: { importAction = action }
-        )
+  // MARK: Pages
+
+  @ViewBuilder private var pageContent: some View {
+    // Pages only swap views; the queue keeps encoding because JobQueue lives in AppDelegate.
+    switch page {
+    case .home:
+      VStack(spacing: 0) {
+        home
+        if isSelecting {
+          SelectionBarView(
+            selectedCount: selectedJobs.count,
+            freedBytes: selectedJobs.reduce(0) { $0 + $1.originalBytes },
+            onCancel: exitSelection,
+            onDelete: { trashCandidates = selectedJobs }
+          )
+        } else {
+          QueueFooterView(
+            savedBytes: queue.sessionSavedBytes,
+            onAddVideos: { isImporting = true },
+            onOpenSettings: { navigate(to: .settings) }
+          )
+        }
+      }
+    case .history:
+      HistoryView(onBack: { navigate(to: .home) })
+    case .settings:
+      SettingsView(onBack: { navigate(to: .home) })
+    }
+  }
+
+  @ViewBuilder private var sideTabBar: some View {
+    if isSidebarVisible {
+      ZStack(alignment: .leading) {
+        Button { setSidebar(false) } label: {
+          DS.Color.bgScrim
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Close side tab bar")
+        .transition(.opacity)
+        SideTabBar(current: page, onSelect: navigate(to:))
+          .transition(reduceMotion ? .opacity : .move(edge: .leading))
       }
     }
+  }
+
+  /// Esc must work even when nothing in the window has focus, which `onExitCommand` needs.
+  /// The tab bar closes first; on a page, Esc then goes back to Home.
+  @ViewBuilder private var escapeShortcut: some View {
+    if isSidebarVisible || page != .home {
+      Button("") {
+        if isSidebarVisible {
+          setSidebar(false)
+        } else {
+          navigate(to: .home)
+        }
+      }
+      .keyboardShortcut(.cancelAction)
+      .opacity(0)
+      .accessibilityHidden(true)
+    }
+  }
+
+  private func setSidebar(_ visible: Bool) {
+    withAnimation(DS.Motion.panel) { isSidebarVisible = visible }
+  }
+
+  private func navigate(to destination: QueuePage) {
+    if destination != .home { exitSelection() }
+    page = destination
+    setSidebar(false)
+  }
+
+  // MARK: Home content
+
+  private var home: some View {
+    // One drop target only: it fills Home while the queue is empty, then shrinks to a bar above the list.
+    VStack(spacing: 0) {
+      if queue.jobs.isEmpty {
+        DropZoneView(isTargeted: isDropTargeted, opensEditor: isOptionHeld, isProminent: true)
+          .padding(DS.Space.s4)
+      } else {
+        DropZoneView(isTargeted: isDropTargeted, opensEditor: isOptionHeld)
+          .padding(.horizontal, DS.Space.s4)
+          .padding(.top, DS.Space.s3)
+          .padding(.bottom, DS.Space.s1)
+        jobList
+      }
+    }
+    .frame(maxWidth: .infinity, maxHeight: .infinity)
+    .contentShape(Rectangle())
+    .dropDestination(for: URL.self) { urls, _ in
+      // ⌥ at drop time routes to the editor instead of the compress queue.
+      handle(urls, action: NSEvent.modifierFlags.contains(.option) ? .edit : .compress)
+    } isTargeted: { isDropTargeted = $0 }
+    .task(id: isDropTargeted) { await trackOptionKey() }
   }
 
   private var jobList: some View {
-    VStack(spacing: 0) {
-      HStack {
-        Text("Jobs")
-          .font(.headline)
-        Spacer()
-        Button("Clear finished") { queue.clearFinished() }
-          .disabled(!queue.jobs.contains(where: \.isFinished))
+    ScrollView {
+      LazyVStack(spacing: DS.Space.s2) {
+        listHeader
+        ForEach(queue.jobs) { job in
+          JobRowView(
+            job: job,
+            isSelecting: isSelecting,
+            isSelected: selection.contains(job.id),
+            onToggleSelection: { toggle(job) },
+            onTrashOriginal: { trashCandidates = [job] }
+          )
+        }
       }
-      .padding(.horizontal, 16)
-      .padding(.bottom, 4)
+      .padding(.horizontal, DS.Space.s4)
+      .padding(.top, DS.Space.s2)
+      .padding(.bottom, DS.Space.s3)
+    }
+    .scrollIndicators(.automatic)
+  }
 
-      List(queue.jobs) { job in
-        JobRowView(job: job)
+  private var listHeader: some View {
+    let finished = queue.jobs.filter { $0.result != nil }.count
+    return HStack(spacing: DS.Space.s2) {
+      Text("\(QueueFormat.videoCount(queue.jobs.count)) · \(finished) finished")
+        .dsText(DS.Typography.caption)
+        .foregroundStyle(DS.Color.textMuted)
+      Spacer(minLength: 0)
+      if isSelecting {
+        Button("Select all finished") {
+          selection = Set(queue.jobs.filter(\.canTrashOriginal).map(\.id))
+        }
+        .buttonStyle(DSGhostButtonStyle(size: .small, bordered: false))
       }
-      .listStyle(.inset)
+      Button {
+        isSelecting ? exitSelection() : (isSelecting = true)
+      } label: {
+        Label(isSelecting ? "Done" : "Select", systemImage: "checkmark.square")
+      }
+      .buttonStyle(DSGhostButtonStyle(size: .small, isActive: isSelecting))
+      .help("Select finished videos to delete their originals")
+    }
+    .padding(.horizontal, DS.Space.s0_5)
+    .frame(height: DS.Size.hitMin)
+  }
+
+
+  // MARK: Selection
+
+  private var selectedJobs: [Job] {
+    queue.jobs.filter { selection.contains($0.id) && $0.canTrashOriginal }
+  }
+
+  private func toggle(_ job: Job) {
+    if selection.contains(job.id) {
+      selection.remove(job.id)
+    } else {
+      selection.insert(job.id)
     }
   }
 
-  private var footer: some View {
-    HStack {
-      Image(systemName: "slider.horizontal.3")
-        .foregroundStyle(.secondary)
-      Text("Compress: \(settings.summary)")
-        .font(.callout)
-        .foregroundStyle(.secondary)
-      Spacer()
-      SettingsLink {
-        Text("Settings…")
-      }
+  private func exitSelection() {
+    isSelecting = false
+    selection = []
+  }
+
+  private func confirmTrash() {
+    trashFailures = queue.trashOriginals(trashCandidates ?? []).map(\.input.lastPathComponent)
+    trashCandidates = nil
+    exitSelection()
+  }
+
+  // MARK: Intake
+
+  /// Polled rather than observed: during a drag from Finder the app isn't key, so it gets no
+  /// flagsChanged events, but the global modifier state is always readable.
+  private static let modifierPollInterval = Duration.milliseconds(100)
+
+  private func trackOptionKey() async {
+    while isDropTargeted, !Task.isCancelled {
+      isOptionHeld = NSEvent.modifierFlags.contains(.option)
+      try? await Task.sleep(for: Self.modifierPollInterval)
     }
-    .padding(.horizontal, 16)
-    .padding(.vertical, 10)
+    isOptionHeld = false
   }
 
   private func handle(_ urls: [URL], action: DropAction) -> Bool {

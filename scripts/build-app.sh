@@ -3,7 +3,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-VERSION="${VERSION:-0.1.0}"
+VERSION="${VERSION:-1.0.0}"
 BUILD="${BUILD:-$(date +%Y%m%d%H%M)}"
 APP="$ROOT/dist/ViCut Lite.app"
 
@@ -20,6 +20,8 @@ mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources/bin"
 install -m 0755 "$BIN" "$APP/Contents/MacOS/VicutLite"
 install -m 0755 vendor/bin/ffmpeg vendor/bin/ffprobe "$APP/Contents/Resources/bin/"
 sed -e "s/__VERSION__/$VERSION/" -e "s/__BUILD__/$BUILD/" Resources/Info.plist > "$APP/Contents/Info.plist"
+# GPL: the license, the third-party notices and the About-panel credits travel with every build.
+install -m 0644 LICENSE THIRD_PARTY_NOTICES.md Resources/Credits.html "$APP/Contents/Resources/"
 if [[ -f Resources/AppIcon.icns ]]; then
   cp Resources/AppIcon.icns "$APP/Contents/Resources/"
 fi

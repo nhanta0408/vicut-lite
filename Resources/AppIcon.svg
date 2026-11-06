@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="vcGold" gradientUnits="userSpaceOnUse" gradientTransform="matrix(400 0 0 396 312 334)" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#FBE3A0"/>
+      <stop offset="0.45" stop-color="#E4B53F"/>
+      <stop offset="1" stop-color="#9E7020"/>
+    </linearGradient>
+    <radialGradient id="vcBody" cx="0.5" cy="0.18" r="0.9">
+      <stop offset="0" stop-color="#26231D"/>
+      <stop offset="0.55" stop-color="#0F0E0C"/>
+      <stop offset="1" stop-color="#050505"/>
+    </radialGradient>
+    <linearGradient id="vcRim" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#F5D27A" stop-opacity="0.55"/>
+      <stop offset="1" stop-color="#E4B53F" stop-opacity="0.08"/>
+    </linearGradient>
+    <clipPath id="vcTop"><polygon points="0,0 1024,0 1024,251 0,732"/></clipPath>
+    <clipPath id="vcBottom"><polygon points="0,773 1024,292 1024,1024 0,1024"/></clipPath>
+  </defs>
+  <rect x="100" y="100" width="824" height="824" rx="185" fill="url(#vcBody)"/>
+  <rect x="104" y="104" width="816" height="816" rx="181" fill="none" stroke="url(#vcRim)" stroke-width="6"/>
+  <path d="M196 661 L828 363" stroke="#E4B53F" stroke-opacity="0.55" stroke-width="7" stroke-dasharray="14 34" stroke-linecap="round"/>
+  <g transform="translate(13 -3)">
+    <g clip-path="url(#vcTop)">
+      <polygon points="312,334 436,334 512,494 588,334 712,334 512,730" stroke="url(#vcGold)" stroke-width="44" stroke-linejoin="round" fill="url(#vcGold)"/>
+    </g>
+  </g>
+  <g transform="translate(-13 5)">
+    <g clip-path="url(#vcBottom)">
+      <polygon points="312,334 436,334 512,494 588,334 712,334 512,730" stroke="url(#vcGold)" stroke-width="44" stroke-linejoin="round" fill="url(#vcGold)"/>
+    </g>
+  </g>
+</svg>

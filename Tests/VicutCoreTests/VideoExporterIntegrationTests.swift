@@ -120,6 +120,27 @@ struct VideoExporterIntegrationTests {
     #expect(result.exceedsTarget == false)
   }
 
+  @Test func lightEncoderUsesHardwareAndStaysUnderTarget() async throws {
+    defer { cleanup() }
+    let input = try await makeSample()
+    let output = OutputNamer.uniqueOutput(for: input, suffix: "-light")
+    var settings = CompressSettings.default
+    settings.encoder = .light
+    let marks = [Segment(start: 5, end: 15, action: .cut)]
+    let exporter = VideoExporter(tools: tools, temporaryRoot: tempRoot)
+    let result = try await exporter.export(
+      ExportRequest(input: input, output: output, marks: marks, settings: settings),
+      progress: { _ in }
+    )
+
+    let info = try await Probe.run(output, tools: tools)
+    #expect(info.videoCodec == "h264")
+    #expect(info.hasAudio)
+    #expect(abs(info.duration - (Self.sourceDuration - 10)) < 0.3)
+    #expect(result.bytes <= CompressSettings.githubLimitBytes)
+    #expect(try hasFastStart(output))
+  }
+
   @Test func cancellationLeavesNoFiles() async throws {
     defer { cleanup() }
     let input = try await makeSample()

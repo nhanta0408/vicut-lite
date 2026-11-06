@@ -8,162 +8,293 @@ struct EditorView: View {
   @Environment(\.dismiss) private var dismiss
   @State private var model: EditorModel
   @State private var showExportOptions = false
+  @State private var isEditMenuOpen = false
+
+  /// 1 s steps feel right for arrow-key scrubbing; finer control is the timeline drag.
+  private static let arrowStep = 1.0
+  private static let speedKeys: [Double] = [2, 4, 8]
 
   init(url: URL) {
     _model = State(initialValue: EditorModel(url: url))
   }
 
   var body: some View {
-    VStack(spacing: 12) {
-      if let error = model.loadError {
-        ContentUnavailableView("Can't open video", systemImage: "exclamationmark.triangle", description: Text(error))
-      } else {
-        PlayerView(player: model.player)
-          .background(Color.black)
-          .clipShape(RoundedRectangle(cornerRadius: 8))
-        transport
-        EditTimelineView(model: model)
-        toolbar
-        summary
-      }
-    }
-    .padding(16)
-    .frame(minWidth: 760, minHeight: 560)
-    .navigationTitle(model.url.lastPathComponent)
-    .task { await model.load() }
-    .onDisappear { model.teardown() }
+    content
+      .frame(minWidth: DS.Size.editorMinWidth, minHeight: DS.Size.editorMinHeight)
+      .background(DS.Color.bgApp)
+      .preferredColorScheme(.dark)
+      .navigationTitle(model.url.lastPathComponent)
+      .toolbar { titleBar }
+      .toolbarBackground(DS.Color.bgChrome, for: .windowToolbar)
+      .toolbarBackground(.visible, for: .windowToolbar)
+      .modifier(HiddenWindowTitle())
+      .task { await model.load() }
+      .onDisappear { model.teardown() }
   }
 
-  private var transport: some View {
-    HStack(spacing: 12) {
-      Button {
-        model.togglePlay()
-      } label: {
-        Image(systemName: model.isPlaying ? "pause.fill" : "play.fill")
-          .frame(width: 20)
+  @ViewBuilder
+  private var content: some View {
+    if let error = model.loadError {
+      ContentUnavailableView("Can't open video", systemImage: "exclamationmark.triangle", description: Text(error))
+    } else {
+      VStack(spacing: 0) {
+        HStack(spacing: 0) {
+          stage
+          if model.spansPanel == .pinned {
+            SpansPanelSlot(model: model, mode: .pinned)
+          }
+        }
+        .frame(maxHeight: .infinity)
+        transportBar
+        timelineSection
       }
-      .keyboardShortcut(.space, modifiers: [])
-      .help("Play / Pause (Space)")
+      .overlayPreferenceValue(EditMenuAnchorKey.self) { anchor in
+        editMenuOverlay(anchor)
+      }
+      .overlay {
+        if let pending = model.pendingReplace {
+          OverlapDialog(
+            pending: pending,
+            onCancel: { model.cancelPendingReplace() },
+            onConfirm: { model.confirmPendingReplace() }
+          )
+        }
+      }
+      .background(shortcuts)
+    }
+  }
 
-      Button { model.step(by: -1) } label: { Image(systemName: "gobackward.5") }
-        .keyboardShortcut(.leftArrow, modifiers: [])
-        .help("Back 1s (←)")
-      Button { model.step(by: 1) } label: { Image(systemName: "goforward.5") }
-        .keyboardShortcut(.rightArrow, modifiers: [])
-        .help("Forward 1s (→)")
+  // MARK: Title bar
 
-      Text("\(Formatters.duration(model.currentTime)) / \(Formatters.duration(model.duration))")
+  @ToolbarContentBuilder
+  private var titleBar: some ToolbarContent {
+    EditorToolbarItem(placement: .principal) {
+      HStack(spacing: DS.Space.s2) {
+        Image(systemName: "scissors")
+          .font(.system(size: DS.Size.icon, weight: .semibold))
+          .foregroundStyle(DS.Color.gold500)
+        Text(model.url.lastPathComponent)
+          .dsText(DS.Typography.label)
+          .foregroundStyle(DS.Color.textPrimary)
+          .lineLimit(1)
+          .truncationMode(.middle)
+      }
+      .help(model.url.lastPathComponent)
+    }
+    EditorToolbarItem(placement: .automatic) {
+      Text(Formatters.duration(model.duration))
+        .dsText(DS.Typography.caption)
+        .foregroundStyle(DS.Color.textMuted)
         .monospacedDigit()
-        .foregroundStyle(.secondary)
-
-      Spacer()
-
-      zoomControls
-
-      Toggle("Preview edits", isOn: $model.previewEdits)
-        .toggleStyle(.checkbox)
-        .help("Skip cut parts and fast-forward sped-up parts while playing")
+        .padding(.horizontal, DS.Space.s2)
+        .accessibilityLabel("Clip length \(Formatters.duration(model.duration))")
     }
   }
 
-  private var zoomControls: some View {
-    HStack(spacing: 4) {
-      Button { model.zoom(by: 1 / EditorModel.zoomStep) } label: { Image(systemName: "minus.magnifyingglass") }
-        .keyboardShortcut("-", modifiers: .command)
-        .help("Zoom out (⌘−)")
-        .disabled(!model.viewport.isZoomed)
-      Text(zoomLabel)
-        .monospacedDigit()
-        .foregroundStyle(.secondary)
-        .frame(minWidth: 52)
-      Button { model.zoom(by: EditorModel.zoomStep) } label: { Image(systemName: "plus.magnifyingglass") }
-        .keyboardShortcut("=", modifiers: .command)
-        .help("Zoom in (⌘+) · pinch or ⌥-scroll on the timeline")
-        .disabled(model.viewport.span <= TimelineViewport.minSpan)
-      Button("Fit") { model.zoomToFit() }
-        .keyboardShortcut("0", modifiers: .command)
-        .help("Show the whole clip (⌘0)")
-        .disabled(!model.viewport.isZoomed)
-      Button("Zoom to selection") { model.zoomToSelection() }
-        .keyboardShortcut("z", modifiers: [])
-        .help("Zoom to the selected range (Z)")
-        .disabled(!model.hasSelection)
+  // MARK: Stage
+
+  private var stage: some View {
+    ZStack {
+      DS.Color.bgStage
+      PlayerView(player: model.player)
     }
-    .controlSize(.small)
-  }
-
-  /// Visible span is more useful than a raw factor when editing a 5s part of a 30min clip.
-  private var zoomLabel: String {
-    model.viewport.isZoomed ? Formatters.duration(model.viewport.span) : "All"
-  }
-
-  private var toolbar: some View {
-    HStack(spacing: 8) {
-      Button("In  I") { model.markIn() }
-        .keyboardShortcut("i", modifiers: [])
-      Button("Out  O") { model.markOut() }
-        .keyboardShortcut("o", modifiers: [])
-
-      Divider().frame(height: 18)
-
-      Button { model.apply(.cut) } label: { Label("Cut  C", systemImage: "scissors") }
-        .keyboardShortcut("c", modifiers: [])
-      ForEach([2.0, 4.0, 8.0], id: \.self) { factor in
-        Button(Formatters.speed(factor)) { model.apply(.speed(factor)) }
-          .keyboardShortcut(KeyEquivalent(Character(String(Int(factor)))), modifiers: [])
-          .help("Speed up selection \(Formatters.speed(factor)) (\(Int(factor)))")
+    .frame(maxWidth: .infinity, maxHeight: .infinity)
+    .overlay(alignment: .topLeading) {
+      previewChip.padding(DS.Space.s3_5)
+    }
+    .overlay(alignment: .bottom) {
+      if let toast = model.toast {
+        EditorKit.Toast(message: toast.message, isError: toast.isError)
+          .padding(.horizontal, DS.Space.s6)
+          .padding(.bottom, DS.Space.s3_5)
+          .onTapGesture { model.dismissToast() }
+          .transition(.opacity)
       }
-      Button("Keep  K") { model.apply(.keep) }
-        .keyboardShortcut("k", modifiers: [])
-        .help("Remove cut/speed from the selection")
+    }
+    .overlay(alignment: .trailing) {
+      if model.spansPanel == .floating {
+        SpansPanelSlot(model: model, mode: .floating)
+          .padding(DS.Space.s3)
+      }
+    }
+    .animation(.easeOut, value: model.toast)
+    .clipped()
+  }
 
-      Divider().frame(height: 18)
+  private var previewChip: some View {
+    Button {
+      model.previewEdits.toggle()
+    } label: {
+      EditorKit.Pill(
+        text: model.previewEdits ? "Preview edits · On" : "Preview edits · Off",
+        foreground: model.previewEdits ? DS.Color.gold300 : DS.Color.textMuted,
+        fill: DS.Color.bgToast,
+        radius: DS.Radius.span
+      )
+    }
+    .buttonStyle(.plain)
+    .help("Skip cut parts and fast-forward sped-up parts while playing, so playback matches the export")
+    .accessibilityAddTraits(model.previewEdits ? .isSelected : [])
+  }
 
-      Button { model.undo() } label: { Label("Undo", systemImage: "arrow.uturn.backward") }
-        .keyboardShortcut("z", modifiers: .command)
-        .disabled(!model.canUndo)
-      Button("Reset") { model.resetAll() }
-        .disabled(model.marks.isEmpty)
+  // MARK: Transport + export
 
-      Spacer()
+  private var transportBar: some View {
+    HStack(spacing: DS.Space.s3) {
+      playButton
+      HStack(spacing: DS.Space.s1_5) {
+        Text(Formatters.duration(model.currentTime))
+          .dsText(DS.Typography.label)
+          .foregroundStyle(DS.Color.textPrimary)
+        Text("/ \(Formatters.duration(model.duration))")
+          .dsText(DS.Typography.body)
+          .foregroundStyle(DS.Color.textFaint)
+      }
+      .monospacedDigit()
+      .accessibilityElement(children: .combine)
+
+      Spacer(minLength: DS.Space.s3)
+
+      HStack(alignment: .firstTextBaseline, spacing: DS.Space.s1_5) {
+        Text("Output")
+          .dsText(DS.Typography.caption)
+          .foregroundStyle(DS.Color.textMuted)
+        Text(model.outputDuration.map(Formatters.duration) ?? "--:--")
+          .dsText(DS.Typography.heading)
+          .foregroundStyle(DS.Color.gold300)
+          .monospacedDigit()
+      }
+      .accessibilityElement(children: .combine)
+
+      EditorKit.Pill(text: sizeLimit)
+        .help("Size limit for a compressed export (Settings)")
+
+      Button("Cancel") {
+        model.teardown()
+        dismiss()
+      }
+      .buttonStyle(EditorKit.GhostButtonStyle())
+      .padding(.leading, DS.Space.s1_5)
 
       Button {
         showExportOptions = true
       } label: {
-        Label("Export…", systemImage: "square.and.arrow.up")
+        HStack(spacing: DS.Space.s2) {
+          Image(systemName: "square.and.arrow.up")
+            .font(.system(size: DS.Size.iconSmall, weight: .bold))
+          Text("Export")
+        }
       }
+      .buttonStyle(EditorKit.PrimaryButtonStyle())
       .keyboardShortcut("e", modifiers: .command)
-      .buttonStyle(.borderedProminent)
       .disabled(model.outputDuration == nil)
+      .help("Export… (⌘E)")
       .popover(isPresented: $showExportOptions, arrowEdge: .top) {
         exportOptions
       }
     }
+    .padding(.horizontal, DS.Space.s4)
+    .frame(height: DS.Size.transportBar)
+    .background(DS.Color.bgChrome)
+    .overlay(alignment: .top) { divider }
   }
 
-  private var summary: some View {
-    HStack {
-      if let notice = model.notice {
-        Label(notice, systemImage: "info.circle")
-          .foregroundStyle(.orange)
-      } else {
-        Text("Drag to select (snaps to edges, ⌘ = no snap) · C cut · 2/4/8 speed · Z zoom · ⌘E export")
-          .foregroundStyle(.secondary)
-      }
-      Spacer()
-      if let output = model.outputDuration {
-        Text("\(Formatters.duration(model.duration)) → \(Formatters.duration(output))")
-          .monospacedDigit()
-          .foregroundStyle(.secondary)
+  private var playButton: some View {
+    Button {
+      model.togglePlay()
+    } label: {
+      Image(systemName: model.isPlaying ? "pause.fill" : "play.fill")
+        .font(.system(size: DS.Size.icon, weight: .bold))
+        .foregroundStyle(DS.Color.onGold)
+        .frame(width: DS.Size.playButton, height: DS.Size.playButton)
+        .background(Circle().fill(DS.Color.gold500))
+        .overlay(Circle().stroke(DS.Color.goldHalo, lineWidth: DS.Size.playHalo).padding(-DS.Size.playHalo / 2))
+        .contentShape(Circle())
+    }
+    .buttonStyle(.plain)
+    // Off while typing a span time, so Space can't start playback from inside a field.
+    .keyboardShortcut(model.focusedTimeField == nil ? KeyboardShortcut(.space, modifiers: []) : nil)
+    .help("Play / Pause (Space)")
+    .accessibilityLabel(model.isPlaying ? "Pause preview" : "Play preview")
+  }
+
+  private var sizeLimit: String {
+    settings.settings.targetBytes.map { "≤ \(Formatters.bytes($0))" } ?? "No size limit"
+  }
+
+  // MARK: Timeline
+
+  private var timelineSection: some View {
+    VStack(spacing: DS.Space.s2) {
+      TimelineHeaderView(model: model, isEditMenuOpen: $isEditMenuOpen)
+      EditTimelineView(model: model)
+    }
+    .padding(.horizontal, DS.Space.s4)
+    .padding(.top, DS.Space.s2)
+    .padding(.bottom, DS.Space.s3)
+    .background(DS.Color.bgInset)
+    .overlay(alignment: .top) { divider }
+  }
+
+  private var divider: some View {
+    Rectangle()
+      .fill(DS.Color.borderSubtle)
+      .frame(height: DS.Size.hairline)
+  }
+
+  /// Drawn at window level so a click anywhere outside the menu can close it.
+  @ViewBuilder
+  private func editMenuOverlay(_ anchor: Anchor<CGRect>?) -> some View {
+    if isEditMenuOpen, let anchor {
+      GeometryReader { proxy in
+        let button = proxy[anchor]
+        ZStack(alignment: .topLeading) {
+          Color.clear
+            .contentShape(Rectangle())
+            .onTapGesture { isEditMenuOpen = false }
+          EditSpanMenu(model: model) { isEditMenuOpen = false }
+            .frame(height: max(button.minY - DS.Space.s1_5, 0), alignment: .bottomLeading)
+            .offset(x: min(button.minX, max(proxy.size.width - DS.Size.menuWidth - DS.Space.s4, 0)))
+        }
       }
     }
-    .font(.callout)
   }
 
+  // MARK: Keyboard
+
+  /// Shortcuts without a visible button. Hidden buttons still receive key equivalents.
+  private var shortcuts: some View {
+    ZStack {
+      shortcut(.leftArrow) { model.step(by: -Self.arrowStep) }
+      shortcut(.rightArrow) { model.step(by: Self.arrowStep) }
+      shortcut("i") { model.markIn() }
+      shortcut("o") { model.markOut() }
+      shortcut("c") { model.apply(.cut) }
+      shortcut("k") { model.apply(.keep) }
+      ForEach(Self.speedKeys, id: \.self) { factor in
+        shortcut(KeyEquivalent(Character(String(Int(factor))))) { model.apply(.speed(factor)) }
+      }
+      if isEditMenuOpen {
+        shortcut(.escape) { isEditMenuOpen = false }
+      }
+    }
+    .frame(width: 0, height: 0)
+    .opacity(0)
+    .accessibilityHidden(true)
+    .disabled(model.pendingReplace != nil || model.focusedTimeField != nil)
+  }
+
+  private func shortcut(_ key: KeyEquivalent, action: @escaping () -> Void) -> some View {
+    Button("", action: action).keyboardShortcut(key, modifiers: [])
+  }
+
+  // MARK: Export
+
   private var exportOptions: some View {
-    VStack(alignment: .leading, spacing: 10) {
+    VStack(alignment: .leading, spacing: DS.Space.s3) {
       Text("Export as .mp4")
-        .font(.headline)
+        .dsText(DS.Typography.heading)
+        .foregroundStyle(DS.Color.textPrimary)
       exportChoice(
         title: "Full quality",
         detail: "Original resolution and frame rate. No size limit.",
@@ -177,28 +308,41 @@ struct EditorView: View {
         fullQuality: false
       )
     }
-    .padding(14)
-    .frame(width: 320)
+    .padding(DS.Space.s4)
+    .frame(width: DS.Size.exportPopover)
+    .background(DS.Color.bgRaised)
   }
 
   private func exportChoice(title: String, detail: String, systemImage: String, fullQuality: Bool) -> some View {
     Button {
       export(fullQuality: fullQuality)
     } label: {
-      HStack(spacing: 10) {
-        Image(systemName: systemImage)
-          .font(.title3)
-          .frame(width: 26)
-        VStack(alignment: .leading, spacing: 2) {
-          Text(title).font(.body.weight(.semibold))
-          Text(detail).font(.caption).foregroundStyle(.secondary)
+      EditorKit.HoverBody { hovering in
+        HStack(spacing: DS.Space.s3) {
+          Image(systemName: systemImage)
+            .font(.system(size: DS.Size.icon, weight: .semibold))
+            .foregroundStyle(DS.Color.gold500)
+            .frame(width: DS.Size.exportChoiceIcon)
+          VStack(alignment: .leading, spacing: DS.Space.s0_5) {
+            Text(title)
+              .dsText(DS.Typography.label)
+              .foregroundStyle(DS.Color.textPrimary)
+            Text(detail)
+              .dsText(DS.Typography.caption)
+              .foregroundStyle(DS.Color.textMuted)
+          }
+          Spacer()
         }
-        Spacer()
+        .padding(DS.Space.s3)
+        .background(RoundedRectangle(cornerRadius: DS.Radius.lg).fill(hovering ? DS.Color.bgHover : DS.Color.bgInset))
+        .overlay(
+          RoundedRectangle(cornerRadius: DS.Radius.lg)
+            .strokeBorder(hovering ? DS.Color.borderGold : DS.Color.borderDefault, lineWidth: DS.Size.hairline)
+        )
+        .contentShape(Rectangle())
       }
-      .padding(8)
-      .contentShape(Rectangle())
     }
-    .buttonStyle(.bordered)
+    .buttonStyle(.plain)
   }
 
   private func export(fullQuality: Bool) {
@@ -207,5 +351,31 @@ struct EditorView: View {
     queue.enqueueExport(model.url, marks: model.marks, fullQuality: fullQuality)
     openWindow(id: WindowID.main)
     dismiss()
+  }
+}
+
+/// The file name is drawn centred in the toolbar; hide the system title so it isn't shown twice.
+private struct HiddenWindowTitle: ViewModifier {
+  func body(content: Content) -> some View {
+    if #available(macOS 15, *) {
+      content.toolbar(removing: .title)
+    } else {
+      content.background(EditorKit.WindowConfigurator { $0.titleVisibility = .hidden })
+    }
+  }
+}
+
+/// Toolbar item without the macOS 26 glass capsule, so title-bar text sits on the chrome colour.
+private struct EditorToolbarItem<Content: View>: ToolbarContent {
+  let placement: ToolbarItemPlacement
+  @ViewBuilder let content: Content
+
+  var body: some ToolbarContent {
+    if #available(macOS 26, *) {
+      ToolbarItem(placement: placement) { content }
+        .sharedBackgroundVisibility(.hidden)
+    } else {
+      ToolbarItem(placement: placement) { content }
+    }
   }
 }

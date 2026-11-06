@@ -95,6 +95,11 @@ public struct VideoExporter: Sendable {
     duration: Double,
     progress: @escaping @Sendable (Double) -> Void
   ) async throws {
+    if request.settings.resolvedEncoder == .light {
+      try await encodeWithVideoToolbox(request: request, graph: graph, plan: plan, staged: staged,
+                                       duration: duration, progress: progress)
+      return
+    }
     let crfArgs = EncodeCommandBuilder.crfArguments(input: request.input, output: staged, graph: graph, plan: plan)
     guard let target = request.settings.targetBytes else {
       try await runFFmpeg(crfArgs, duration: duration, range: 0...1, progress: progress)
@@ -117,6 +122,34 @@ public struct VideoExporter: Sendable {
       )
       try await runFFmpeg(args, duration: duration, range: range, progress: progress)
     }
+  }
+
+  /// Same shape as the x264 path: quality first, re-encode at the planned bitrate only if it overshoots.
+  private func encodeWithVideoToolbox(
+    request: ExportRequest,
+    graph: FilterGraph,
+    plan: EncodePlan,
+    staged: URL,
+    duration: Double,
+    progress: @escaping @Sendable (Double) -> Void
+  ) async throws {
+    let qualityArgs = EncodeCommandBuilder.videoToolboxQualityArguments(
+      input: request.input, output: staged, graph: graph, plan: plan
+    )
+    guard let target = request.settings.targetBytes, plan.videoKbps != nil else {
+      try await runFFmpeg(qualityArgs, duration: duration, range: 0...1, progress: progress)
+      return
+    }
+    let qualityEnd = Self.crfProgressShare
+    try await runFFmpeg(qualityArgs, duration: duration, range: 0...qualityEnd, progress: progress)
+    if try fileSize(staged) <= target {
+      return
+    }
+    try FileManager.default.removeItem(at: staged)
+    let bitrateArgs = EncodeCommandBuilder.videoToolboxBitrateArguments(
+      input: request.input, output: staged, graph: graph, plan: plan
+    )
+    try await runFFmpeg(bitrateArgs, duration: duration, range: qualityEnd...1, progress: progress)
   }
 
   private func runFFmpeg(
