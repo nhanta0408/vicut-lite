@@ -17,6 +17,12 @@ public struct AppPresence: Equatable, Sendable {
     showInDock || !showInMenuBar
   }
 
+  /// "Show in Dock" off only removes the icon once every window is closed: an open window without a
+  /// Dock icon (or ⌘-Tab entry) feels broken, so any open window keeps the app in the Dock.
+  public func showsInDock(hasOpenWindows: Bool) -> Bool {
+    effectiveShowInDock || hasOpenWindows
+  }
+
   /// Quitting on the last window close would also remove the menu bar icon the user relies on.
   public var terminatesAfterLastWindowClosed: Bool {
     !showInMenuBar

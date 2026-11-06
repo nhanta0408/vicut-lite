@@ -104,4 +104,11 @@ struct AppPresenceTests {
     #expect(!presence.effectiveShowInDock)
     #expect(!presence.terminatesAfterLastWindowClosed)
   }
+
+  @Test func dockIconFollowsOpenWindowsWhenHidden() {
+    let hidden = AppPresence(showInMenuBar: true, showInDock: false, dropZoneWhileDragging: true)
+    #expect(hidden.showsInDock(hasOpenWindows: true))
+    #expect(!hidden.showsInDock(hasOpenWindows: false))
+    #expect(AppPresence.default.showsInDock(hasOpenWindows: false))
+  }
 }

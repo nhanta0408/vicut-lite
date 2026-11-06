@@ -151,9 +151,9 @@ extension SettingsView {
       )
       SettingsDivider()
       SettingsToggleRow(
-        label: "Show in Dock",
+        label: "Stay in Dock when closed",
         hint: canHideDock
-          ? "Off: ViCut Lite lives in the menu bar only."
+          ? "Off: the Dock icon shows while a window is open and goes away when you close it; ViCut Lite stays in the menu bar."
           : "Turn on Show in menu bar first, so the app stays reachable.",
         isOn: $preferences.showInDock
       )
