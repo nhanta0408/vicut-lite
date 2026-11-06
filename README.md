@@ -33,6 +33,8 @@ parts nobody wants to watch (like waiting for an AI to think).
 - **Smart bitrate.** Picks the bitrate from your size target, steps resolution down only when text would get
   blurry, and re-encodes 2-pass if the first try overshoots.
 - **Share fast.** Drag a finished row straight into a browser, Slack or Mail, or right-click → **Copy File**.
+- **Fast or Light encoder.** Fast uses x264 on every core for the smallest files; Light uses Apple's media
+  engine (VideoToolbox) and stays under one CPU core, so the Mac keeps cool while it works.
 - **History.** Every export with its saving; reveal it in Finder later.
 - **Tidy up.** Select finished rows and move their originals to the Trash.
 - **Black & gold UI.** Native SwiftUI, one design system, dark by design.
@@ -54,7 +56,7 @@ xattr -dr com.apple.quarantine "/Applications/ViCut Lite.app"
 | Drop videos on the window | Compressed `name-vicut.mp4` next to each original |
 | Hold **⌥** while dropping, or click **Edit** on a row | The editor |
 | **Export…** in the editor (⌘E) | **Full quality** (`name-edited.mp4`, original size/fps) or **Compressed** (your Settings) |
-| Sidebar → **History** / **Settings** | Past exports / target size, resolution, fps, audio, file suffix |
+| Sidebar → **History** / **Settings** | Past exports / target size, resolution, fps, encoder, audio, file suffix |
 
 ### Editor shortcuts
 
@@ -86,6 +88,8 @@ The **Spans** panel lists every cut and speed-up: click a row to jump to it, typ
    text, resolution steps down 1920 → 1280 → 960 → 640.
 3. Encode with libx264 CRF 26 capped by `-maxrate`. If the file still overshoots, re-encode 2-pass at the exact bitrate.
 4. Small H.264 files already under the target are just remuxed (`-c copy`).
+5. With the **Light** encoder, decode and encode run on VideoToolbox (`-hwaccel videotoolbox`, `h264_videotoolbox -q:v`);
+   if the file overshoots, it re-encodes once at the planned bitrate (VideoToolbox has no 2-pass).
 
 Cuts and speed-ups are one `filter_complex` (`trim` / `setpts` / `atempo` → `concat` → `scale,fps`), so there is a
 single encode.

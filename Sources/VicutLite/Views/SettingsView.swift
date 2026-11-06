@@ -77,7 +77,22 @@ struct SettingsView: View {
       SettingsRow(label: "Frame rate", hint: "Frame rate cap.") {
         SegmentedControl(title: "Frame rate", options: SettingsOptions.fps, selection: $store.settings.fpsCap)
       }
+      SettingsDivider()
+      SettingsRow(
+        label: "Encoder",
+        hint: "Fast uses every CPU core. Light uses Apple's media engine: under one core, a bit slower, slightly larger files."
+      ) {
+        SegmentedControl(title: "Encoder", options: SettingsOptions.encoder, selection: encoderBinding)
+      }
     }
+  }
+
+  /// `.fast` is stored as nil so untouched settings still compare equal to the defaults.
+  private var encoderBinding: Binding<EncoderMode> {
+    Binding(
+      get: { store.settings.resolvedEncoder },
+      set: { store.settings.encoder = $0 == .fast ? nil : $0 }
+    )
   }
 
   private var audio: some View {
@@ -151,6 +166,11 @@ enum SettingsOptions {
   static let fps: [SegmentOption<Int>] = CompressSettings.fpsPresets.map {
     SegmentOption(value: $0, label: "\($0) fps")
   }
+
+  static let encoder: [SegmentOption<EncoderMode>] = [
+    SegmentOption(value: .fast, label: "Fast", hint: "x264 on every CPU core · smallest files"),
+    SegmentOption(value: .light, label: "Light", hint: "Apple hardware encoder · keeps the Mac cool and responsive")
+  ]
 
   static let audio: [SegmentOption<AudioMode>] = [
     SegmentOption(value: .keep, label: "Stereo", hint: "Keep, stereo 128k"),

@@ -47,4 +47,18 @@ struct CompressSettingsTests {
     let output = OutputNamer.uniqueOutput(for: input, suffix: CompressSettings.sanitizedSuffix("/../x"))
     #expect(output.deletingLastPathComponent() == input.deletingLastPathComponent())
   }
+
+  @Test func settingsSavedBeforeEncoderOptionDecodeAsFast() throws {
+    var legacy = try JSONSerialization.jsonObject(with: JSONEncoder().encode(CompressSettings.default)) as? [String: Any] ?? [:]
+    legacy.removeValue(forKey: "encoder")
+    let decoded = try JSONDecoder().decode(CompressSettings.self, from: JSONSerialization.data(withJSONObject: legacy))
+    #expect(decoded.encoder == nil)
+    #expect(decoded.resolvedEncoder == .fast)
+    #expect(decoded.isDefault)
+  }
+
+  @Test func fullQualityKeepsChosenEncoder() {
+    #expect(CompressSettings.fullQuality(muteSpedUpAudio: true).resolvedEncoder == .fast)
+    #expect(CompressSettings.fullQuality(muteSpedUpAudio: true, encoder: .light).resolvedEncoder == .light)
+  }
 }

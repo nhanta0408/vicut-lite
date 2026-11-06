@@ -106,7 +106,7 @@ final class JobQueue {
     let current = settings.settings
     let job = fullQuality
       ? Job(input: url, marks: marks, kind: .exportFullQuality,
-            settings: .fullQuality(muteSpedUpAudio: current.muteSpedUpAudio))
+            settings: .fullQuality(muteSpedUpAudio: current.muteSpedUpAudio, encoder: current.resolvedEncoder))
       : Job(input: url, marks: marks, kind: .exportCompressed, settings: current)
     jobs.insert(job, at: 0)
     startWorkerIfNeeded()

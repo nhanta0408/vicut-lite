@@ -6,6 +6,15 @@ public enum AudioMode: String, Codable, CaseIterable, Sendable {
   case strip
 }
 
+/// Trade-off between encode speed / file size and how hard the machine works.
+public enum EncoderMode: String, Codable, CaseIterable, Sendable {
+  /// libx264 on every CPU core: smallest file for the quality, fastest on a free machine.
+  case fast
+  /// Apple's hardware decoder + encoder (VideoToolbox): well under one core, a bit slower,
+  /// slightly larger files at the same quality.
+  case light
+}
+
 public struct CompressSettings: Codable, Equatable, Sendable {
   /// nil = no size limit (quality-based encode only).
   public var targetBytes: Int64?
@@ -17,6 +26,10 @@ public struct CompressSettings: Codable, Equatable, Sendable {
   public var outputSuffix: String
   /// x264 quality; nil = EncodePlan.defaultCrf. Optional so settings saved by older builds still decode.
   public var crf: Int?
+  /// nil = `.fast`. Optional so settings saved by older builds still decode.
+  public var encoder: EncoderMode?
+
+  public var resolvedEncoder: EncoderMode { encoder ?? .fast }
 
   public init(
     targetBytes: Int64?,
@@ -25,7 +38,8 @@ public struct CompressSettings: Codable, Equatable, Sendable {
     audio: AudioMode,
     muteSpedUpAudio: Bool,
     outputSuffix: String,
-    crf: Int? = nil
+    crf: Int? = nil,
+    encoder: EncoderMode? = nil
   ) {
     self.targetBytes = targetBytes
     self.maxDimension = maxDimension
@@ -34,6 +48,7 @@ public struct CompressSettings: Codable, Equatable, Sendable {
     self.muteSpedUpAudio = muteSpedUpAudio
     self.outputSuffix = outputSuffix
     self.crf = crf
+    self.encoder = encoder
   }
 
   /// GitHub's free-plan attachment limit is 10 MB; decimal bytes keeps us safely under it.
@@ -77,7 +92,7 @@ public struct CompressSettings: Codable, Equatable, Sendable {
   static let fullQualityFpsCap = 60
 
   /// Edit-only export: source resolution and frame rate, stereo audio, no size target.
-  public static func fullQuality(muteSpedUpAudio: Bool) -> CompressSettings {
+  public static func fullQuality(muteSpedUpAudio: Bool, encoder: EncoderMode = .fast) -> CompressSettings {
     CompressSettings(
       targetBytes: nil,
       maxDimension: nil,
@@ -85,7 +100,8 @@ public struct CompressSettings: Codable, Equatable, Sendable {
       audio: .keep,
       muteSpedUpAudio: muteSpedUpAudio,
       outputSuffix: "-edited",
-      crf: fullQualityCrf
+      crf: fullQualityCrf,
+      encoder: encoder
     )
   }
 }

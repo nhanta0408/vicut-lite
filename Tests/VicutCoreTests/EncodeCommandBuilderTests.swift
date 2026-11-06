@@ -53,5 +53,35 @@ struct EncodeCommandBuilderTests {
     let joined = EncodeCommandBuilder.crfArguments(input: input, output: output, graph: graph, plan: highQuality).joined(separator: " ")
     #expect(joined.contains("-crf 18"))
   }
-}
 
+  @Test func videoToolboxQualityDecodesAndEncodesInHardware() {
+    let joined = EncodeCommandBuilder.videoToolboxQualityArguments(input: input, output: output, graph: graph, plan: plan(video: 1000, audio: 64))
+      .joined(separator: " ")
+    #expect(joined.contains("-y -hwaccel videotoolbox -i /in/Screen Recording.mov"))
+    #expect(joined.contains("-c:v h264_videotoolbox -q:v 45 -pix_fmt yuv420p -tag:v avc1"))
+    #expect(!joined.contains("libx264"))
+    #expect(!joined.contains("-maxrate"))
+    #expect(joined.contains("-c:a aac -b:a 64k -ac 1"))
+    #expect(joined.hasSuffix("/out/a.mp4"))
+  }
+
+  @Test func videoToolboxBitrateUsesPlannedKbps() {
+    let joined = EncodeCommandBuilder.videoToolboxBitrateArguments(input: input, output: output, graph: graph, plan: plan(video: 900, audio: 64))
+      .joined(separator: " ")
+    #expect(joined.contains("-c:v h264_videotoolbox -b:v 900k -maxrate 900k -bufsize 1800k"))
+    #expect(!joined.contains("-pass"))
+  }
+
+  @Test func videoToolboxQualityFollowsCrf() {
+    #expect(EncodeCommandBuilder.videoToolboxQuality(crf: EncodePlan.defaultCrf) == 45)
+    #expect(EncodeCommandBuilder.videoToolboxQuality(crf: 18) == 65)
+    #expect(EncodeCommandBuilder.videoToolboxQuality(crf: -100) == 100)
+    #expect(EncodeCommandBuilder.videoToolboxQuality(crf: 100) == 1)
+  }
+
+  @Test func x264StaysSoftwareDecoded() {
+    let joined = EncodeCommandBuilder.crfArguments(input: input, output: output, graph: graph, plan: plan(video: nil, audio: 64))
+      .joined(separator: " ")
+    #expect(!joined.contains("-hwaccel"))
+  }
+}
