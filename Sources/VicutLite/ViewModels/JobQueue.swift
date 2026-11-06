@@ -75,8 +75,6 @@ final class Job: Identifiable {
 @MainActor
 @Observable
 final class JobQueue {
-  static let supportedExtensions: Set<String> = ["mov", "mp4", "m4v", "mkv", "webm", "avi"]
-
   private(set) var jobs: [Job] = []
   /// Bytes saved by every export finished since launch, kept even after rows are cleared.
   private(set) var sessionSavedBytes: Int64 = 0
@@ -90,15 +88,18 @@ final class JobQueue {
   }
 
   static func isSupported(_ url: URL) -> Bool {
-    supportedExtensions.contains(url.pathExtension.lowercased())
+    VideoFiles.isSupported(url)
   }
 
   /// Plain compression with the user's Settings.
-  func enqueue(_ urls: [URL]) {
+  @discardableResult
+  func enqueue(_ urls: [URL]) -> [Job] {
     let accepted = urls.filter(Self.isSupported)
     let snapshot = settings.settings
-    jobs.insert(contentsOf: accepted.map { Job(input: $0, marks: [], kind: .compress, settings: snapshot) }, at: 0)
+    let added = accepted.map { Job(input: $0, marks: [], kind: .compress, settings: snapshot) }
+    jobs.insert(contentsOf: added, at: 0)
     startWorkerIfNeeded()
+    return added
   }
 
   /// Export from the editor; `fullQuality` skips the size target entirely.

@@ -54,7 +54,7 @@ struct VideoExporterIntegrationTests {
   @Test func compressesUnderTenMegabytes() async throws {
     defer { cleanup() }
     let input = try await makeSample()
-    #expect(try fileSize(input) > CompressSettings.githubLimitBytes)
+    #expect(try fileSize(input) > CompressSettings.defaultTargetBytes)
 
     let output = OutputNamer.uniqueOutput(for: input, suffix: "-vicut")
     let exporter = VideoExporter(tools: tools, temporaryRoot: tempRoot)
@@ -65,7 +65,7 @@ struct VideoExporterIntegrationTests {
     )
 
     #expect(result.output == output)
-    #expect(result.bytes <= CompressSettings.githubLimitBytes)
+    #expect(result.bytes <= CompressSettings.defaultTargetBytes)
     #expect(result.exceedsTarget == false)
     #expect(try hasFastStart(output))
 
@@ -96,7 +96,7 @@ struct VideoExporterIntegrationTests {
     // 5s keep + 20s/4 + 5s keep = 15s
     #expect(abs(info.duration - 15) < 0.3)
     #expect(info.hasAudio)
-    #expect(result.bytes <= CompressSettings.githubLimitBytes)
+    #expect(result.bytes <= CompressSettings.defaultTargetBytes)
   }
 
   @Test func fullQualityExportKeepsSourceResolutionAndFps() async throws {
@@ -137,7 +137,7 @@ struct VideoExporterIntegrationTests {
     #expect(info.videoCodec == "h264")
     #expect(info.hasAudio)
     #expect(abs(info.duration - (Self.sourceDuration - 10)) < 0.3)
-    #expect(result.bytes <= CompressSettings.githubLimitBytes)
+    #expect(result.bytes <= CompressSettings.defaultTargetBytes)
     #expect(try hasFastStart(output))
   }
 

@@ -16,7 +16,7 @@ struct EncodeCommandBuilderTests {
     let joined = args.joined(separator: " ")
     #expect(joined.hasPrefix("-hide_banner -nostats -progress pipe:1 -y -i /in/Screen Recording.mov"))
     #expect(joined.contains("-filter_complex G -map [vout] -map 0:a:0"))
-    #expect(joined.contains("-c:v libx264 -preset medium -crf 26 -maxrate 1000k -bufsize 2000k"))
+    #expect(joined.contains("-c:v libx264 -preset medium -crf 22 -maxrate 1000k -bufsize 2000k"))
     #expect(joined.contains("-c:a aac -b:a 64k -ac 1"))
     #expect(joined.contains("-movflags +faststart"))
     #expect(args.last == "/out/a.mp4")
@@ -58,7 +58,7 @@ struct EncodeCommandBuilderTests {
     let joined = EncodeCommandBuilder.videoToolboxQualityArguments(input: input, output: output, graph: graph, plan: plan(video: 1000, audio: 64))
       .joined(separator: " ")
     #expect(joined.contains("-y -hwaccel videotoolbox -i /in/Screen Recording.mov"))
-    #expect(joined.contains("-c:v h264_videotoolbox -q:v 45 -pix_fmt yuv420p -tag:v avc1"))
+    #expect(joined.contains("-c:v h264_videotoolbox -q:v 55 -g 300 -pix_fmt yuv420p -tag:v avc1"))
     #expect(!joined.contains("libx264"))
     #expect(!joined.contains("-maxrate"))
     #expect(joined.contains("-c:a aac -b:a 64k -ac 1"))
@@ -68,12 +68,13 @@ struct EncodeCommandBuilderTests {
   @Test func videoToolboxBitrateUsesPlannedKbps() {
     let joined = EncodeCommandBuilder.videoToolboxBitrateArguments(input: input, output: output, graph: graph, plan: plan(video: 900, audio: 64))
       .joined(separator: " ")
-    #expect(joined.contains("-c:v h264_videotoolbox -b:v 900k -maxrate 900k -bufsize 1800k"))
+    #expect(joined.contains("-c:v h264_videotoolbox -b:v 900k -maxrate 900k -bufsize 1800k -g 300"))
     #expect(!joined.contains("-pass"))
   }
 
   @Test func videoToolboxQualityFollowsCrf() {
-    #expect(EncodeCommandBuilder.videoToolboxQuality(crf: EncodePlan.defaultCrf) == 45)
+    #expect(EncodeCommandBuilder.videoToolboxQuality(crf: CompressQuality.smaller.crf) == 45)
+    #expect(EncodeCommandBuilder.videoToolboxQuality(crf: CompressQuality.balanced.crf) == 55)
     #expect(EncodeCommandBuilder.videoToolboxQuality(crf: 18) == 65)
     #expect(EncodeCommandBuilder.videoToolboxQuality(crf: -100) == 100)
     #expect(EncodeCommandBuilder.videoToolboxQuality(crf: 100) == 1)

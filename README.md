@@ -61,7 +61,8 @@ nobody wants to watch.
 | Drop videos on the window | `name-vicut.mp4` next to each original, ≤ 10 MB |
 | Hold <kbd>⌥</kbd> while dropping, or click **Edit** | The editor: mark parts as **Cut**, **2×** or **4×**, then **Export** (⌘E) |
 | Drag a finished row into GitHub, Slack or Mail | The compressed file, attached |
-| Sidebar → **Settings** | Target size, resolution, fps, audio, **Fast / Light** encoder |
+| Start dragging a video anywhere, or drop it on the menu bar icon | A drop zone pops up in the screen corner: drop to compress (<kbd>⌥</kbd> to edit). Hide the Dock icon in **Settings → Menu bar** |
+| Sidebar → **Settings** | Target size, **Smaller / Balanced / Sharper** quality, resolution, fps, audio, **Fast / Light** encoder |
 
 Editor keys: <kbd>Space</kbd> play · drag to select · <kbd>C</kbd> cut · <kbd>2</kbd> / <kbd>4</kbd> speed up ·
 <kbd>K</kbd> back to normal · <kbd>⌘Z</kbd> undo · <kbd>⌘E</kbd> export.

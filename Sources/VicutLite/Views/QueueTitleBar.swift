@@ -100,16 +100,21 @@ struct BrandMark: View {
      CGSize(width: -13, height: 5))
   ]
 
+  /// False draws the V alone, e.g. for the monochrome menu bar template image.
+  var showsTile = true
+
   var body: some View {
     GeometryReader { proxy in
       let side = min(proxy.size.width, proxy.size.height)
       let scale = side / Self.canvas
       let tile = RoundedRectangle(cornerRadius: Self.tileCorner * scale, style: .continuous)
       ZStack {
-        tile
-          .fill(DS.Color.bgInset)
-          .overlay(tile.strokeBorder(DS.Color.borderGold, lineWidth: DS.Stroke.hairline))
-          .padding(Self.tileInset * scale)
+        if showsTile {
+          tile
+            .fill(DS.Color.bgInset)
+            .overlay(tile.strokeBorder(DS.Color.borderGold, lineWidth: DS.Stroke.hairline))
+            .padding(Self.tileInset * scale)
+        }
         ForEach(Self.halves.indices, id: \.self) { index in
           let half = Self.halves[index]
           let vShape = CanvasPolygon(points: Self.vPoints)

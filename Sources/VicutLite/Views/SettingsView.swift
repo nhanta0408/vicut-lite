@@ -4,6 +4,7 @@ import VicutCore
 /// Full-window Settings page bound to `SettingsStore`. Navigation (breadcrumb, tab bar) belongs to the host.
 struct SettingsView: View {
   @Environment(SettingsStore.self) private var store
+  @Environment(AppPreferences.self) private var preferences
   /// Called on Escape so the host can return to the previous page; nil disables it.
   var onBack: (() -> Void)?
 
@@ -19,6 +20,7 @@ struct SettingsView: View {
           compression
           audio
           output
+          menuBar
         }
         .padding(.horizontal, DS.Space.s5)
         .padding(.top, DS.Space.s3)
@@ -57,7 +59,7 @@ struct SettingsView: View {
   private var compression: some View {
     @Bindable var store = store
     return SettingsSection(title: "Compression") {
-      SettingsRow(label: "Target size", hint: "Encoder aims for this size. 10 MB fits GitHub free attachments.") {
+      SettingsRow(label: "Target size", hint: "Output stays under this size.") {
         SegmentedControl(
           title: "Target size",
           options: SettingsOptions.target,
@@ -79,12 +81,27 @@ struct SettingsView: View {
       }
       SettingsDivider()
       SettingsRow(
+        label: "Quality",
+        hint: "With a size limit, the most it will spend. With No limit, this alone decides the file size."
+      ) {
+        SegmentedControl(title: "Quality", options: SettingsOptions.quality, selection: qualityBinding)
+      }
+      SettingsDivider()
+      SettingsRow(
         label: "Encoder",
         hint: "Fast uses every CPU core. Light uses Apple's media engine: under one core, a bit slower, slightly larger files."
       ) {
         SegmentedControl(title: "Encoder", options: SettingsOptions.encoder, selection: encoderBinding)
       }
     }
+  }
+
+  /// `.balanced` is stored as nil so untouched settings still compare equal to the defaults.
+  private var qualityBinding: Binding<CompressQuality> {
+    Binding(
+      get: { store.settings.resolvedQuality },
+      set: { store.settings.quality = $0 == .balanced ? nil : $0 }
+    )
   }
 
   /// `.fast` is stored as nil so untouched settings still compare equal to the defaults.
@@ -122,6 +139,70 @@ struct SettingsView: View {
   }
 }
 
+extension SettingsView {
+  fileprivate var menuBar: some View {
+    @Bindable var preferences = preferences
+    let canHideDock = preferences.presence.canHideDock
+    return SettingsSection(title: "Menu bar") {
+      SettingsToggleRow(
+        label: "Show in menu bar",
+        hint: "Drop videos on the menu bar icon, or click it for recent jobs.",
+        isOn: $preferences.showInMenuBar
+      )
+      SettingsDivider()
+      SettingsToggleRow(
+        label: "Stay in Dock when closed",
+        hint: canHideDock
+          ? "Off: the Dock icon shows while a window is open and goes away when you close it; ViCut Lite stays in the menu bar."
+          : "Turn on Show in menu bar first, so the app stays reachable.",
+        isOn: $preferences.showInDock
+      )
+      .disabled(!canHideDock)
+      .opacity(canHideDock ? 1 : DS.Opacity.disabled)
+      SettingsDivider()
+      SettingsToggleRow(
+        label: "Drop zone while dragging",
+        hint: "Start dragging a video anywhere and a drop target appears in the screen corner. Needs no extra permission.",
+        isOn: $preferences.dropZoneWhileDragging
+      )
+      if preferences.dropZoneWhileDragging, !preferences.isDragMonitorAvailable {
+        SettingsNote(
+          text: "macOS didn't let ViCut Lite watch for drags, so the drop zone can't appear. The menu bar icon still takes drops."
+        )
+      }
+      if preferences.canLaunchAtLogin {
+        SettingsDivider()
+        SettingsToggleRow(
+          label: "Launch at login",
+          hint: "Start ViCut Lite when you log in.",
+          isOn: Binding(get: { preferences.launchAtLogin }, set: { preferences.setLaunchAtLogin($0) })
+        )
+        if let note = preferences.launchAtLoginNote {
+          SettingsNote(text: note)
+        }
+      }
+    }
+  }
+}
+
+/// Caption under a row when a setting can't take effect, e.g. a refused permission.
+private struct SettingsNote: View {
+  let text: String
+
+  var body: some View {
+    HStack(alignment: .top, spacing: DS.Space.s2) {
+      DSIcon("info.circle", size: DS.Size.glyphXs)
+      Text(text)
+        .dsText(DS.Typography.caption)
+        .fixedSize(horizontal: false, vertical: true)
+    }
+    .foregroundStyle(DS.Color.textMuted)
+    .padding(.horizontal, DS.Space.s4)
+    .padding(.bottom, DS.Space.s2_5)
+    .frame(maxWidth: .infinity, alignment: .leading)
+  }
+}
+
 /// "name.mov → name-vicut.mp4" with the suffix in gold.
 private struct OutputNamePreview: View {
   let suffix: String
@@ -152,7 +233,7 @@ private struct OutputNamePreview: View {
 enum SettingsOptions {
   static let target: [SegmentOption<Int64?>] = [
     SegmentOption(value: CompressSettings.smallTargetBytes, label: "5 MB"),
-    SegmentOption(value: CompressSettings.githubLimitBytes, label: "10 MB", hint: "GitHub free limit"),
+    SegmentOption(value: CompressSettings.defaultTargetBytes, label: "10 MB", hint: "Default"),
     SegmentOption(value: CompressSettings.largeTargetBytes, label: "25 MB"),
     SegmentOption(value: nil, label: "No limit", hint: "Quality only, no size target")
   ]
@@ -166,6 +247,12 @@ enum SettingsOptions {
   static let fps: [SegmentOption<Int>] = CompressSettings.fpsPresets.map {
     SegmentOption(value: $0, label: "\($0) fps")
   }
+
+  static let quality: [SegmentOption<CompressQuality>] = [
+    SegmentOption(value: .smaller, label: "Smaller", hint: "Smallest files, softer text"),
+    SegmentOption(value: .balanced, label: "Balanced", hint: "Default"),
+    SegmentOption(value: .sharper, label: "Sharper", hint: "Crisp text, bigger files")
+  ]
 
   static let encoder: [SegmentOption<EncoderMode>] = [
     SegmentOption(value: .fast, label: "Fast", hint: "x264 on every CPU core · smallest files"),
@@ -182,5 +269,6 @@ enum SettingsOptions {
 #Preview("Settings") {
   SettingsView()
     .environment(SettingsStore(defaults: UserDefaults(suiteName: "preview.settings") ?? .standard))
+    .environment(AppPreferences(defaults: UserDefaults(suiteName: "preview.settings") ?? .standard))
     .frame(width: DS.Size.settingsWindowWidth, height: DS.Size.settingsWindowHeight)
 }

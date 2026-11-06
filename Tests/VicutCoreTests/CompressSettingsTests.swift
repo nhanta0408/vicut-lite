@@ -21,7 +21,7 @@ struct CompressSettingsTests {
     let settings = CompressSettings.default
     #expect(CompressSettings.fpsPresets.contains(settings.fpsCap))
     #expect(settings.maxDimension == CompressSettings.maxDimension1080p)
-    #expect(settings.targetBytes == CompressSettings.githubLimitBytes)
+    #expect(settings.targetBytes == CompressSettings.defaultTargetBytes)
   }
 
   @Test func sanitizedSuffixKeepsOrdinaryText() {
@@ -51,9 +51,11 @@ struct CompressSettingsTests {
   @Test func settingsSavedBeforeEncoderOptionDecodeAsFast() throws {
     var legacy = try JSONSerialization.jsonObject(with: JSONEncoder().encode(CompressSettings.default)) as? [String: Any] ?? [:]
     legacy.removeValue(forKey: "encoder")
+    legacy.removeValue(forKey: "quality")
     let decoded = try JSONDecoder().decode(CompressSettings.self, from: JSONSerialization.data(withJSONObject: legacy))
     #expect(decoded.encoder == nil)
     #expect(decoded.resolvedEncoder == .fast)
+    #expect(decoded.resolvedQuality == .balanced)
     #expect(decoded.isDefault)
   }
 

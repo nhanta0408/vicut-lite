@@ -18,8 +18,8 @@ public struct EncodePlan: Sendable, Equatable {
   public var audioChannels: Int?
   public var crf: Int
 
-  /// Visually clean for screen content while still small; maxrate keeps it under the size budget.
-  public static let defaultCrf = 26
+  /// Balanced quality; maxrate keeps it under the size budget.
+  public static let defaultCrf = CompressQuality.balanced.crf
 
   public init(
     mode: Mode, width: Int, height: Int, fps: Int, videoKbps: Int?, audioKbps: Int, audioChannels: Int?,
@@ -40,7 +40,9 @@ public enum BitratePlanner {
   /// Container overhead headroom so the muxed file lands under the target.
   static let sizeHeadroom = 0.95
   /// Below this bits-per-pixel, h264 turns screen text to mush; trade resolution for clarity instead.
-  static let minBitsPerPixel = 0.02
+  /// Screen recordings are mostly static, so they stay sharp far lower than camera footage: on a Retina
+  /// recording, 1280 px at 0.0126 bpp beat 960 px at the same bitrate, so the cut-off sits just below that.
+  static let minBitsPerPixel = 0.01
   static let resolutionLadder = [1920, 1280, 960, 640]
   static let minVideoKbps = 100
   static let monoAudioKbps = 64
@@ -53,7 +55,7 @@ public enum BitratePlanner {
     edited: Bool
   ) -> EncodePlan {
     let fps = max(1, min(Int(source.fps.rounded()), settings.fpsCap))
-    let crf = settings.crf ?? EncodePlan.defaultCrf
+    let crf = settings.resolvedCrf
     let (audioKbps, audioChannels) = audioBudget(source: source, mode: settings.audio)
     var (width, height) = scaled(source: source, longestSide: settings.maxDimension)
 

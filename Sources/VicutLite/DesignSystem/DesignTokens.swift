@@ -404,6 +404,40 @@ extension DS.Size {
   static let queueRowActionGap: CGFloat = 120
 }
 
+// MARK: - Menu bar & floating drop zone
+
+extension DS.Size {
+  /// Menu bar popover content width.
+  static let menuBarPanelWidth: CGFloat = 320
+  /// Most jobs listed in the menu bar popover; the window shows the rest.
+  static let menuBarJobLimit = 4
+  /// Template logo in the status item (menu bar icons are 16–18 pt).
+  static let statusItemGlyph: CGFloat = 18
+  /// BrandMark is drawn this big and cropped to `statusItemGlyph`, so the V fills the icon
+  /// instead of sitting small inside the (template-invisible) tile margin.
+  static let statusItemMarkCanvas: CGFloat = 40
+  /// Floating drop zone that pops up near the screen corner during a file drag.
+  static let floatingDropZone = CGSize(width: 280, height: 150)
+  /// Progress card the floating drop zone turns into after a drop.
+  static let floatingProgressWidth: CGFloat = 320
+  /// Fixed height of a job's status line, so the card doesn't jump when a progress bar becomes buttons.
+  static let floatingProgressLine: CGFloat = 28
+  /// Most jobs listed on the progress card; the rest are summarised as "+N more".
+  static let floatingProgressRows = 3
+}
+
+extension DS.Space {
+  /// Gap between the floating drop zone and the screen's visible edges.
+  static let floatingDropZoneMargin: CGFloat = s5
+}
+
+extension DS.Motion {
+  /// AppKit duration of the floating drop zone slide / fade.
+  static let floatingDropZoneDuration: TimeInterval = 0.2
+  /// How far the floating drop zone slides in from the right edge.
+  static let floatingDropZoneSlide: CGFloat = 40
+}
+
 // MARK: - Helpers
 
 extension SwiftUI.Color {
