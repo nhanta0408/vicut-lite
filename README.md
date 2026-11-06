@@ -20,17 +20,8 @@
 
 1. Download **`ViCut-Lite-x.y.z.dmg`** from the [latest release](https://github.com/nhanta0408/vicut-lite/releases/latest).
 2. Open it and drag **ViCut Lite** into **Applications**.
-3. Allow the first launch. The app isn't notarized by Apple yet, so macOS blocks it once. Pick one:
-
-   **Terminal (fastest, any macOS version):**
-
-   ```bash
-   xattr -dr com.apple.quarantine "/Applications/ViCut Lite.app"
-   ```
-
-   **System Settings:** open ViCut Lite once and dismiss the warning, then go to
-   **System Settings → Privacy & Security**, scroll down and click **Open Anyway**.
-   On macOS 14 you can also right-click the app → **Open** → **Open**.
+3. Open **ViCut Lite**. The first time, macOS asks you to confirm an app from outside the App Store:
+   it takes one click, see [First launch on macOS](#first-launch-on-macos).
 
 Requires macOS 14+ on Apple Silicon.
 
@@ -93,5 +84,29 @@ Issues and pull requests are welcome; see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 Free software under the [GNU GPL v3](LICENSE). Release builds bundle unmodified [FFmpeg](https://ffmpeg.org) 9.0.2
 (GPLv3); source and notices are in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+
+## FAQ
+
+### First launch on macOS
+
+ViCut Lite is free and open source, but it isn't notarized by Apple yet (that needs a paid Apple Developer
+account). So the first time you open it, macOS shows this:
+
+<p align="center">
+  <img src="docs/screenshots/gatekeeper-not-opened.png" width="254" alt="macOS dialog: “ViCut Lite” Not Opened. Apple could not verify “ViCut Lite” is free of malware. Buttons: Move to Trash, Done">
+</p>
+
+Click **Done** (not *Move to Trash*), then allow it once in either way:
+
+- **System Settings:** go to **System Settings → Privacy & Security**, scroll down and click **Open Anyway**
+  next to the ViCut Lite message. On macOS 14 you can also right-click the app → **Open** → **Open**.
+- **Terminal:**
+
+  ```bash
+  xattr -dr com.apple.quarantine "/Applications/ViCut Lite.app"
+  ```
+
+After that it opens normally. You can check what you're running: the whole source is in this repo, and each
+release lists the SHA-256 of its `.dmg`.
 
 <p align="center"><sub>Made by Nhan Ta (Brian)</sub></p>
