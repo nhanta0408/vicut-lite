@@ -55,6 +55,7 @@ struct VicutLiteApp: App {
     Settings {
       SettingsView()
         .environment(delegate.settings)
+        .frame(width: DS.Size.settingsWindowWidth, height: DS.Size.settingsWindowHeight)
     }
   }
 }

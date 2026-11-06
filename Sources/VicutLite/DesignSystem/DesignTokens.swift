@@ -222,6 +222,54 @@ extension DS {
   }
 }
 
+// MARK: - Settings page (additive)
+
+extension DS.Space {
+  /// Inset between a segmented track and its items (canvas: "padding 3 · gap 3").
+  static let s0_75: CGFloat = 3
+  /// Icon ↔ label inside small ghost buttons (canvas: "icon gap 6").
+  static let s1_5: CGFloat = 6
+}
+
+extension DS.Radius {
+  /// Segmented track: item radius (`sm`) plus the track inset, so the corners stay concentric.
+  static let track: CGFloat = sm + DS.Space.s0_75
+}
+
+extension DS.Size {
+  /// Settings row minimum height.
+  static let settingsRow: CGFloat = 52
+  /// Item height inside a segmented control.
+  static let segmentItem: CGFloat = 30
+  /// Segmented control with four options (Target size).
+  static let segmentWide: CGFloat = 340
+  /// Segmented control with three options.
+  static let segmentNarrow: CGFloat = 260
+  /// Single-line text input height.
+  static let inputHeight: CGFloat = 34
+  /// Short text input (file name suffix).
+  static let inputShort: CGFloat = 140
+  /// Switch track.
+  static let toggleWidth: CGFloat = 44
+  static let toggleHeight: CGFloat = 26
+  /// Switch knob: track height minus the inset on both sides.
+  static let toggleKnob: CGFloat = toggleHeight - 2 * DS.Space.s0_75
+  /// Glyph inside a text ghost button (Restore defaults).
+  static let glyphSm: CGFloat = 14
+  /// Inline arrow in captions (output name preview).
+  static let glyphXs: CGFloat = 12
+  /// Standalone Settings window (⌘,): fits the widest row without wrapping.
+  static let settingsWindowWidth: CGFloat = 600
+  static let settingsWindowHeight: CGFloat = 560
+}
+
+extension DS {
+  enum Motion {
+    /// Toggle knob and other small state flips.
+    static let quick = Animation.easeOut(duration: 0.15)
+  }
+}
+
 // MARK: - Helpers
 
 extension SwiftUI.Color {
