@@ -11,6 +11,11 @@ public enum EncodeCommandBuilder {
   static let videoToolboxQualityPerCrf = 2.5
   static let videoToolboxQualityRange = 1...100
 
+  /// VideoToolbox's default keyframe interval is under half a second. On a mostly static screen every
+  /// keyframe re-sends the whole picture: a 3-minute recording was 447 keyframes and 3× the size of
+  /// the same encode with one every 10 s (x264's default is similar), at the same quality.
+  static let videoToolboxKeyframeSeconds = 10
+
   static func videoToolboxQuality(crf: Int) -> Int {
     let raw = Double(videoToolboxDefaultQuality) + Double(videoToolboxAnchorCrf - crf) * videoToolboxQualityPerCrf
     return min(max(Int(raw.rounded()), videoToolboxQualityRange.lowerBound), videoToolboxQualityRange.upperBound)
@@ -22,7 +27,7 @@ public enum EncodeCommandBuilder {
     let rate = ["-q:v", "\(videoToolboxQuality(crf: plan.crf))"]
     return header(input: input, hardwareDecode: true)
       + mapping(graph: graph)
-      + videoToolbox(rate: rate)
+      + videoToolbox(rate: rate, fps: plan.fps)
       + audio(graph: graph, plan: plan)
       + container(output: output)
   }
@@ -34,7 +39,7 @@ public enum EncodeCommandBuilder {
     let rate = ["-b:v", "\(kbps)k", "-maxrate", "\(kbps)k", "-bufsize", "\(kbps * 2)k"]
     return header(input: input, hardwareDecode: true)
       + mapping(graph: graph)
-      + videoToolbox(rate: rate)
+      + videoToolbox(rate: rate, fps: plan.fps)
       + audio(graph: graph, plan: plan)
       + container(output: output)
   }
@@ -94,8 +99,9 @@ public enum EncodeCommandBuilder {
     ["-c:v", "libx264", "-preset", preset] + rate + ["-pix_fmt", "yuv420p", "-tag:v", "avc1"]
   }
 
-  private static func videoToolbox(rate: [String]) -> [String] {
-    ["-c:v", "h264_videotoolbox"] + rate + ["-pix_fmt", "yuv420p", "-tag:v", "avc1"]
+  private static func videoToolbox(rate: [String], fps: Int) -> [String] {
+    let keyframes = ["-g", "\(max(1, fps) * videoToolboxKeyframeSeconds)"]
+    return ["-c:v", "h264_videotoolbox"] + rate + keyframes + ["-pix_fmt", "yuv420p", "-tag:v", "avc1"]
   }
 
   private static func audio(graph: FilterGraph, plan: EncodePlan) -> [String] {

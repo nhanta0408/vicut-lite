@@ -58,7 +58,7 @@ struct EncodeCommandBuilderTests {
     let joined = EncodeCommandBuilder.videoToolboxQualityArguments(input: input, output: output, graph: graph, plan: plan(video: 1000, audio: 64))
       .joined(separator: " ")
     #expect(joined.contains("-y -hwaccel videotoolbox -i /in/Screen Recording.mov"))
-    #expect(joined.contains("-c:v h264_videotoolbox -q:v 55 -pix_fmt yuv420p -tag:v avc1"))
+    #expect(joined.contains("-c:v h264_videotoolbox -q:v 55 -g 300 -pix_fmt yuv420p -tag:v avc1"))
     #expect(!joined.contains("libx264"))
     #expect(!joined.contains("-maxrate"))
     #expect(joined.contains("-c:a aac -b:a 64k -ac 1"))
@@ -68,7 +68,7 @@ struct EncodeCommandBuilderTests {
   @Test func videoToolboxBitrateUsesPlannedKbps() {
     let joined = EncodeCommandBuilder.videoToolboxBitrateArguments(input: input, output: output, graph: graph, plan: plan(video: 900, audio: 64))
       .joined(separator: " ")
-    #expect(joined.contains("-c:v h264_videotoolbox -b:v 900k -maxrate 900k -bufsize 1800k"))
+    #expect(joined.contains("-c:v h264_videotoolbox -b:v 900k -maxrate 900k -bufsize 1800k -g 300"))
     #expect(!joined.contains("-pass"))
   }
 
