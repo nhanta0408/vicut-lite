@@ -90,7 +90,7 @@ struct TimelineHeaderView: View {
         .accessibilityLabel("Fit whole clip")
         .disabled(!model.viewport.isZoomed)
       Button { model.zoomToSelection() } label: { Image(systemName: "viewfinder") }
-        .keyboardShortcut("z", modifiers: [])
+        .keyboardShortcut(model.focusedTimeField == nil ? KeyboardShortcut("z", modifiers: []) : nil)
         .help("Zoom to the selection (Z)")
         .accessibilityLabel("Zoom to selection")
         .disabled(model.editTarget == nil)

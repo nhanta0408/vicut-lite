@@ -212,7 +212,8 @@ struct EditorView: View {
         .contentShape(Circle())
     }
     .buttonStyle(.plain)
-    .keyboardShortcut(.space, modifiers: [])
+    // Off while typing a span time, so Space can't start playback from inside a field.
+    .keyboardShortcut(model.focusedTimeField == nil ? KeyboardShortcut(.space, modifiers: []) : nil)
     .help("Play / Pause (Space)")
     .accessibilityLabel(model.isPlaying ? "Pause preview" : "Play preview")
   }
@@ -280,7 +281,7 @@ struct EditorView: View {
     .frame(width: 0, height: 0)
     .opacity(0)
     .accessibilityHidden(true)
-    .disabled(model.pendingReplace != nil)
+    .disabled(model.pendingReplace != nil || model.focusedTimeField != nil)
   }
 
   private func shortcut(_ key: KeyEquivalent, action: @escaping () -> Void) -> some View {

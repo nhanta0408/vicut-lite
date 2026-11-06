@@ -18,16 +18,21 @@ Drop videos anywhere in the window (or on the Dock icon) to compress them. Outpu
 | Space | Play / pause |
 | ← / → | Step 1 s |
 | drag on timeline | Select a range — edges snap to marks and clip ends within 1 s (hold ⌘ to place freely) |
+| click on timeline | Select the span under the pointer (C / 2 / 4 / 8 / K then retype it) |
 | ⌘+ / ⌘− / ⌘0 | Zoom timeline in / out / fit whole clip |
-| Z | Zoom to the selection |
+| Z | Zoom to the selection or selected span |
 | pinch, ⌥-scroll | Zoom at the pointer |
 | scroll / swipe | Pan the zoomed timeline (or drag the overview bar below it) |
 | I / O | Mark in / out at the playhead |
-| C | Cut selection |
-| 2 / 4 / 8 | Speed up selection |
-| K | Keep (clear cut/speed on selection) |
+| C | Cut selection / selected span |
+| 2 / 4 / 8 | Speed up selection / selected span |
+| K | Keep (clear cut/speed on selection / selected span) |
 | ⌘Z | Undo |
 | ⌘E | Export… (choose full quality or compressed) |
+
+**Spans** (timeline header) lists every part: click a row to select and jump to it, type new start / end times
+(`m:ss.s`, Return to apply, Esc to discard), or change its type with the pencil. Pin it to dock it beside the video.
+Single-key shortcuts are paused while a time field is being edited.
 
 Settings (⌘,) apply to compression: target size (5/10/25 MB/no limit), max resolution, fps, audio, mute sped-up parts, file suffix.
 
