@@ -3,7 +3,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-VERSION="${VERSION:-1.0.0}"
+VERSION="${VERSION:-1.1.0}"
 BUILD="${BUILD:-$(date +%Y%m%d%H%M)}"
 APP="$ROOT/dist/ViCut Lite.app"
 
