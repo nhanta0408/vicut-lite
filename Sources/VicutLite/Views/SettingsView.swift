@@ -45,7 +45,7 @@ struct SettingsView: View {
           Text("Restore defaults")
         }
       }
-      .buttonStyle(GhostTextButtonStyle())
+      .buttonStyle(DSGhostButtonStyle(size: .medium, quiet: true))
       .disabled(store.isDefault)
       .help("Reset every setting to its default value")
     }

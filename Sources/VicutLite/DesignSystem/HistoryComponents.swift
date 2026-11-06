@@ -1,7 +1,6 @@
 import SwiftUI
 
-// Components used by the History page. Kept separate from Components.swift until the
-// design-system files are consolidated.
+// Components used only by the History page; shared buttons live in Components.swift.
 
 /// Gold pill with the size reduction, e.g. "−98%" (canvas: "Saved badge").
 struct SavedBadge: View {
@@ -54,52 +53,5 @@ struct HistoryGroupHeader: View {
     .padding(.bottom, DS.Space.s0_5)
     .frame(maxWidth: .infinity, alignment: .leading)
     .accessibilityElement(children: .combine)
-  }
-}
-
-/// Transparent square button with a border; hover tints it like the canvas `.vc-icon-btn`.
-struct GhostIconButtonStyle: ButtonStyle {
-  var size: CGFloat = DS.Size.iconButtonSm
-
-  func makeBody(configuration: Configuration) -> some View {
-    GhostChrome(configuration: configuration, radius: DS.Radius.sm) {
-      configuration.label
-        .font(.system(size: DS.Size.iconGlyph))
-        .frame(width: size, height: size)
-    }
-  }
-}
-
-/// Text ghost button (e.g. "Clear"), same chrome as the Settings "Restore defaults" button.
-struct GhostTextButtonStyle: ButtonStyle {
-  func makeBody(configuration: Configuration) -> some View {
-    GhostChrome(configuration: configuration, radius: DS.Radius.md) {
-      configuration.label
-        .dsText(DS.Typography.label)
-        .padding(.horizontal, DS.Space.s3)
-        .frame(height: DS.Size.iconButtonSm)
-    }
-  }
-}
-
-private struct GhostChrome<Content: View>: View {
-  let configuration: ButtonStyleConfiguration
-  let radius: CGFloat
-  @ViewBuilder let content: Content
-  @State private var isHovered = false
-  @Environment(\.isEnabled) private var isEnabled
-
-  var body: some View {
-    let active = isEnabled && (isHovered || configuration.isPressed)
-    content
-      .foregroundStyle(active ? DS.Color.gold300 : DS.Color.textSecondary)
-      .background(active ? DS.Color.bgHover : SwiftUI.Color.clear, in: RoundedRectangle(cornerRadius: radius))
-      .overlay(
-        RoundedRectangle(cornerRadius: radius)
-          .strokeBorder(DS.Color.borderDefault, lineWidth: DS.Size.hairline)
-      )
-      .contentShape(RoundedRectangle(cornerRadius: radius))
-      .opacity(isEnabled ? 1 : DS.Opacity.disabled)
-      .onHover { isHovered = $0 }
   }
 }

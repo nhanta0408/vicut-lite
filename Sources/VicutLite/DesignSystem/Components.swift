@@ -10,6 +10,8 @@ extension DS {
   enum ButtonSize {
     /// 28 pt: header actions such as "Select".
     case small
+    /// 32 pt: title-bar icons, page-header actions (Clear, Restore defaults, Show in Finder).
+    case medium
     /// 36 pt: buttons inside a button group.
     case regular
     /// 38 pt: dialog actions, preset chip.
@@ -20,6 +22,7 @@ extension DS {
     var height: CGFloat {
       switch self {
       case .small: DS.Size.hitMin
+      case .medium: DS.Size.iconButtonSmall
       case .regular: DS.Size.iconButton
       case .dialog: DS.Size.buttonDialog
       case .large: DS.Size.buttonLarge
@@ -29,7 +32,7 @@ extension DS {
     var radius: CGFloat {
       switch self {
       case .small: DS.Radius.sm
-      case .regular, .dialog: DS.Radius.md
+      case .medium, .regular, .dialog: DS.Radius.md
       case .large: DS.Radius.lg
       }
     }
@@ -37,14 +40,14 @@ extension DS {
     var paddingX: CGFloat {
       switch self {
       case .small: DS.Space.s2
-      case .regular, .dialog: DS.Space.s3
+      case .medium, .regular, .dialog: DS.Space.s3
       case .large: DS.Space.s4
       }
     }
 
     var text: DS.TextStyle {
       switch self {
-      case .small, .regular: DS.Typography.label
+      case .small, .medium, .regular: DS.Typography.label
       case .dialog, .large: DS.Typography.bodyBold
       }
     }
@@ -83,6 +86,8 @@ struct DSGhostButtonStyle: ButtonStyle {
   var isActive = false
   /// Drops the border for text-only actions such as "Select all finished".
   var bordered = true
+  /// border.default instead of border.strong: page-header actions sitting on bg.app.
+  var quiet = false
 
   func makeBody(configuration: Configuration) -> some View {
     DSButtonBody(configuration: configuration, size: size) { hovered, _ in
@@ -91,7 +96,7 @@ struct DSGhostButtonStyle: ButtonStyle {
       } else {
         DSButtonColors(
           fill: hovered ? DS.Color.bgHover : .clear,
-          border: bordered ? DS.Color.borderStrong : .clear,
+          border: bordered ? (quiet ? DS.Color.borderDefault : DS.Color.borderStrong) : .clear,
           label: hovered || !bordered ? DS.Color.gold300 : DS.Color.textSecondary
         )
       }
@@ -138,11 +143,13 @@ struct DSIconButtonStyle: ButtonStyle {
   /// Inset well background, for standalone icon buttons on a card.
   var inset = false
   var isActive = false
+  /// border.default instead of border.strong, same as `DSGhostButtonStyle.quiet`.
+  var quiet = false
 
   func makeBody(configuration: Configuration) -> some View {
     DSButtonBody(configuration: configuration, size: size, square: true) { hovered, _ in
       let rest = inset ? DS.Color.bgInset : SwiftUI.Color.clear
-      let border = bordered ? (inset ? DS.Color.borderDefault : DS.Color.borderStrong) : .clear
+      let border = bordered ? (inset || quiet ? DS.Color.borderDefault : DS.Color.borderStrong) : .clear
       switch (tone, isActive, hovered) {
       case (_, true, _):
         return DSButtonColors(fill: DS.Color.goldTint, border: border, label: DS.Color.gold300)

@@ -6,7 +6,7 @@ import SwiftUI
 struct QueueTitleBar: View {
   let doneCount: Int
   let activeCount: Int
-  /// Hook for the side tab bar (History / Settings), which is not built yet.
+  let page: QueuePage
   @Binding var isSidebarVisible: Bool
   let onHome: () -> Void
 
@@ -16,15 +16,17 @@ struct QueueTitleBar: View {
         Button { isSidebarVisible.toggle() } label: {
           DSIcon("sidebar.left", size: DS.Size.glyphLarge)
         }
-        .buttonStyle(DSIconButtonStyle(size: .small, isActive: isSidebarVisible))
+        .buttonStyle(DSIconButtonStyle(size: .medium, isActive: isSidebarVisible))
         .help("Menu")
         .accessibilityLabel("Toggle side tab bar")
+        .accessibilityValue(isSidebarVisible ? "Expanded" : "Collapsed")
 
         Button(action: onHome) {
+          // Gold only while Home is showing, so the icon doubles as a location cue.
           DSIcon("house", size: DS.Size.glyphLarge)
-            .foregroundStyle(DS.Color.gold500)
+            .foregroundStyle(page == .home ? DS.Color.gold500 : DS.Color.textSecondary)
         }
-        .buttonStyle(DSIconButtonStyle(size: .small))
+        .buttonStyle(DSIconButtonStyle(size: .medium))
         .help("Home")
         .accessibilityLabel("Home")
       }
@@ -42,6 +44,20 @@ struct QueueTitleBar: View {
           .dsText(DS.Typography.heading)
       }
       .accessibilityElement(children: .combine)
+
+      if page != .home {
+        HStack(spacing: DS.Space.s3) {
+          Text("/")
+            .foregroundStyle(DS.Color.textFaint)
+          Text(page.title)
+            .dsText(DS.Typography.bodyBold)
+            .foregroundStyle(DS.Color.textPrimary)
+        }
+        .dsText(DS.Typography.body)
+        .lineLimit(1)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Current page: \(page.title)")
+      }
 
       Spacer(minLength: DS.Space.s3)
 
@@ -62,35 +78,65 @@ struct QueueTitleBar: View {
   }
 }
 
-/// The gold "V" app mark, drawn so it stays crisp at title-bar size.
+/// The app mark from `Resources/AppIcon.svg`: a gold V split along a diagonal into two
+/// offset halves, on a dark squircle. Drawn as vectors so it stays crisp at 22–30 pt.
 struct BrandMark: View {
-  /// Points of the V on the 1024-unit icon canvas.
-  private static let canvas: CGFloat = 1024
-  /// macOS icon squircle: 212 pt corner on a 944 pt tile.
-  private static let cornerRatio: CGFloat = 212 / 944
-  private static let points: [CGPoint] = [
+  /// Every coordinate below is on the icon's 1024-unit canvas.
+  nonisolated fileprivate static let canvas: CGFloat = 1024
+  /// Squircle tile: 944 units wide, 40 in from each edge, 212 corner.
+  private static let tileInset: CGFloat = 40
+  private static let tileCorner: CGFloat = 212
+  /// The V's outline is stroked this wide with round joins, which rounds its tips.
+  private static let vStroke: CGFloat = 44
+  private static let vPoints: [CGPoint] = [
     CGPoint(x: 312, y: 334), CGPoint(x: 436, y: 334), CGPoint(x: 512, y: 494),
     CGPoint(x: 588, y: 334), CGPoint(x: 712, y: 334), CGPoint(x: 512, y: 730)
+  ]
+  /// Halves of the cut: the clip region and how far that half is nudged.
+  private static let halves: [(clip: [CGPoint], offset: CGSize)] = [
+    ([CGPoint(x: 0, y: 0), CGPoint(x: 1024, y: 0), CGPoint(x: 1024, y: 251), CGPoint(x: 0, y: 732)],
+     CGSize(width: 13, height: -3)),
+    ([CGPoint(x: 0, y: 773), CGPoint(x: 1024, y: 292), CGPoint(x: 1024, y: 1024), CGPoint(x: 0, y: 1024)],
+     CGSize(width: -13, height: 5))
   ]
 
   var body: some View {
     GeometryReader { proxy in
       let side = min(proxy.size.width, proxy.size.height)
       let scale = side / Self.canvas
+      let tile = RoundedRectangle(cornerRadius: Self.tileCorner * scale, style: .continuous)
       ZStack {
-        RoundedRectangle(cornerRadius: side * Self.cornerRatio, style: .continuous)
+        tile
           .fill(DS.Color.bgInset)
-        RoundedRectangle(cornerRadius: side * Self.cornerRatio, style: .continuous)
-          .strokeBorder(DS.Color.borderGold, lineWidth: DS.Stroke.hairline)
-        Path { path in
-          path.addLines(Self.points.map { CGPoint(x: $0.x * scale, y: $0.y * scale) })
-          path.closeSubpath()
+          .overlay(tile.strokeBorder(DS.Color.borderGold, lineWidth: DS.Stroke.hairline))
+          .padding(Self.tileInset * scale)
+        ForEach(Self.halves.indices, id: \.self) { index in
+          let half = Self.halves[index]
+          let vShape = CanvasPolygon(points: Self.vPoints)
+          ZStack {
+            vShape.fill(DS.Color.gold500)
+            vShape.stroke(DS.Color.gold500, style: StrokeStyle(lineWidth: Self.vStroke * scale, lineJoin: .round))
+          }
+          .clipShape(CanvasPolygon(points: half.clip))
+          .offset(x: half.offset.width * scale, y: half.offset.height * scale)
         }
-        .fill(DS.Color.gold500)
       }
       .frame(width: side, height: side)
     }
     .accessibilityHidden(true)
+  }
+}
+
+/// Polygon given in 1024-unit icon coordinates, scaled to whatever square it is drawn in.
+private struct CanvasPolygon: Shape {
+  let points: [CGPoint]
+
+  func path(in rect: CGRect) -> Path {
+    let scale = min(rect.width, rect.height) / BrandMark.canvas
+    var path = Path()
+    path.addLines(points.map { CGPoint(x: rect.minX + $0.x * scale, y: rect.minY + $0.y * scale) })
+    path.closeSubpath()
+    return path
   }
 }
 
