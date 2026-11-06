@@ -159,7 +159,7 @@ struct JobRowView: View {
     case .done(let result):
       DSButtonGroup {
         editButton
-        Button { NSWorkspace.shared.activateFileViewerSelecting([result.output]) } label: {
+        Button { FileActions.reveal(result.output) } label: {
           DSIcon("folder", size: DS.Size.glyphLarge)
         }
         .buttonStyle(DSIconButtonStyle())
@@ -227,8 +227,8 @@ struct JobRowView: View {
 
   @ViewBuilder private var contextMenu: some View {
     if let result = job.result {
-      Button("Copy File") { copy(result.output) }
-      Button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([result.output]) }
+      Button("Copy File") { FileActions.copy(result.output) }
+      Button("Show in Finder") { FileActions.reveal(result.output) }
       Divider()
     }
     Button("Remove") { queue.remove(job) }
@@ -267,12 +267,5 @@ struct JobRowView: View {
       return provider
     }
     return NSItemProvider()
-  }
-
-  /// Pasting a file URL into a GitHub comment uploads it.
-  private func copy(_ url: URL) {
-    let pasteboard = NSPasteboard.general
-    pasteboard.clearContents()
-    pasteboard.writeObjects([url as NSURL])
   }
 }

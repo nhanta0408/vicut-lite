@@ -4,6 +4,7 @@ import VicutCore
 /// Full-window Settings page bound to `SettingsStore`. Navigation (breadcrumb, tab bar) belongs to the host.
 struct SettingsView: View {
   @Environment(SettingsStore.self) private var store
+  @Environment(AppPreferences.self) private var preferences
   /// Called on Escape so the host can return to the previous page; nil disables it.
   var onBack: (() -> Void)?
 
@@ -19,6 +20,7 @@ struct SettingsView: View {
           compression
           audio
           output
+          menuBar
         }
         .padding(.horizontal, DS.Space.s5)
         .padding(.top, DS.Space.s3)
@@ -137,6 +139,70 @@ struct SettingsView: View {
   }
 }
 
+extension SettingsView {
+  fileprivate var menuBar: some View {
+    @Bindable var preferences = preferences
+    let canHideDock = preferences.presence.canHideDock
+    return SettingsSection(title: "Menu bar") {
+      SettingsToggleRow(
+        label: "Show in menu bar",
+        hint: "Drop videos on the menu bar icon, or click it for recent jobs.",
+        isOn: $preferences.showInMenuBar
+      )
+      SettingsDivider()
+      SettingsToggleRow(
+        label: "Show in Dock",
+        hint: canHideDock
+          ? "Off: ViCut Lite lives in the menu bar only."
+          : "Turn on Show in menu bar first, so the app stays reachable.",
+        isOn: $preferences.showInDock
+      )
+      .disabled(!canHideDock)
+      .opacity(canHideDock ? 1 : DS.Opacity.disabled)
+      SettingsDivider()
+      SettingsToggleRow(
+        label: "Drop zone while dragging",
+        hint: "Start dragging a video anywhere and a drop target appears in the screen corner. Needs no extra permission.",
+        isOn: $preferences.dropZoneWhileDragging
+      )
+      if preferences.dropZoneWhileDragging, !preferences.isDragMonitorAvailable {
+        SettingsNote(
+          text: "macOS didn't let ViCut Lite watch for drags, so the drop zone can't appear. The menu bar icon still takes drops."
+        )
+      }
+      if preferences.canLaunchAtLogin {
+        SettingsDivider()
+        SettingsToggleRow(
+          label: "Launch at login",
+          hint: "Start ViCut Lite when you log in.",
+          isOn: Binding(get: { preferences.launchAtLogin }, set: { preferences.setLaunchAtLogin($0) })
+        )
+        if let note = preferences.launchAtLoginNote {
+          SettingsNote(text: note)
+        }
+      }
+    }
+  }
+}
+
+/// Caption under a row when a setting can't take effect, e.g. a refused permission.
+private struct SettingsNote: View {
+  let text: String
+
+  var body: some View {
+    HStack(alignment: .top, spacing: DS.Space.s2) {
+      DSIcon("info.circle", size: DS.Size.glyphXs)
+      Text(text)
+        .dsText(DS.Typography.caption)
+        .fixedSize(horizontal: false, vertical: true)
+    }
+    .foregroundStyle(DS.Color.textMuted)
+    .padding(.horizontal, DS.Space.s4)
+    .padding(.bottom, DS.Space.s2_5)
+    .frame(maxWidth: .infinity, alignment: .leading)
+  }
+}
+
 /// "name.mov → name-vicut.mp4" with the suffix in gold.
 private struct OutputNamePreview: View {
   let suffix: String
@@ -203,5 +269,6 @@ enum SettingsOptions {
 #Preview("Settings") {
   SettingsView()
     .environment(SettingsStore(defaults: UserDefaults(suiteName: "preview.settings") ?? .standard))
+    .environment(AppPreferences(defaults: UserDefaults(suiteName: "preview.settings") ?? .standard))
     .frame(width: DS.Size.settingsWindowWidth, height: DS.Size.settingsWindowHeight)
 }
