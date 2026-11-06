@@ -12,7 +12,6 @@ final class EditorModel {
   static let zoomStep = 2.0
   static let thumbnailDebounce = Duration.milliseconds(150)
   /// Length of a span added from the edit menu at the playhead.
-  static let newSpanLength = 3.0
   static let toastDuration = Duration.milliseconds(3200)
   /// Typed times are shown to 0.1 s, so anything within half a tenth counts as unchanged.
   static let typedTimeTolerance = 0.05
@@ -70,6 +69,11 @@ final class EditorModel {
 
   var resolved: [Segment] {
     duration > 0 ? Timeline.resolve(marks: marks, duration: duration) : []
+  }
+
+  /// Cuts and speed-ups only: Normal parts are the gaps between them, so listing them is noise.
+  var editedSpans: [Segment] {
+    resolved.filter { $0.action != .keep }
   }
 
   var outputDuration: Double? {
@@ -229,7 +233,8 @@ final class EditorModel {
       return
     }
     guard target.action != action else { return }
-    paint(target.range, with: action)
+    // Retyping is an explicit replace, so spans it swallows go without asking (⌘Z restores them).
+    paint(target.range, with: action, asksBeforeRemoving: false)
   }
 
   /// Moves `span`'s edges to `range`, keeping its type. Typed times go through the same overlap
@@ -251,16 +256,6 @@ final class EditorModel {
     flash("Invalid time. Use m:ss.s within 0:00–\(Formatters.duration(duration)), start before end.", isError: true)
   }
 
-  /// Adds a short span starting at the playhead, as offered by the edit menu.
-  func addAtPlayhead(_ action: SegmentAction) {
-    let end = min(currentTime + Self.newSpanLength, duration)
-    guard end - currentTime >= Self.minSelection else {
-      flash("The playhead is at the end of the clip.", isError: true)
-      return
-    }
-    paint(currentTime...end, with: action)
-  }
-
   func confirmPendingReplace() {
     guard let pending = pendingReplace else { return }
     pendingReplace = nil
@@ -272,7 +267,14 @@ final class EditorModel {
   }
 
   /// `base` is the marks to paint on top of; a retime passes marks with the old span released.
-  private func paint(_ range: ClosedRange<Double>, with action: SegmentAction, over base: [Segment]? = nil) {
+  /// Only moving a span's edges asks before swallowing neighbours: that removal is a side effect
+  /// the user may not have meant.
+  private func paint(
+    _ range: ClosedRange<Double>,
+    with action: SegmentAction,
+    over base: [Segment]? = nil,
+    asksBeforeRemoving: Bool = true
+  ) {
     let base = base ?? marks
     let candidate = base + [Segment(start: range.lowerBound, end: range.upperBound, action: action)]
     guard (try? Timeline.normalize(marks: candidate, duration: duration)) != nil else {
@@ -280,7 +282,7 @@ final class EditorModel {
       return
     }
     let impact = Timeline.overlap(of: range, action: action, marks: base, duration: duration)
-    if !impact.covered.isEmpty {
+    if asksBeforeRemoving, !impact.covered.isEmpty {
       pendingReplace = PendingReplace(range: range, action: action, impact: impact, base: base)
       return
     }

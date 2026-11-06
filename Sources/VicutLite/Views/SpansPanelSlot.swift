@@ -12,7 +12,7 @@ struct SpansPanelSlot: View {
   @State private var menuRow: Int?
 
   var body: some View {
-    let spans = model.resolved
+    let spans = model.editedSpans
     VStack(spacing: 0) {
       header(count: spans.count)
       list(spans)
@@ -60,7 +60,7 @@ struct SpansPanelSlot: View {
         .dsText(DS.Typography.heading)
         .foregroundStyle(DS.Color.textPrimary)
         .accessibilityAddTraits(.isHeader)
-        .help("Edit times directly. Partial overlaps trim the neighbour; fully covered spans ask before removal.")
+        .help("Edit times directly. Partial overlaps trim the neighbour; fully covered spans ask before removal. Normal parts are not listed.")
       Text("\(count)")
         .dsText(DS.Typography.caption)
         .foregroundStyle(DS.Color.textMuted)
@@ -116,9 +116,6 @@ struct SpansPanelSlot: View {
               row(index: index, span: span, isSelected: isSelected(span))
                 .id(index)
             }
-            if model.marks.isEmpty {
-              hint
-            }
           }
           .padding(.horizontal, DS.Space.s3)
           .padding(.vertical, DS.Space.s2_5)
@@ -136,10 +133,10 @@ struct SpansPanelSlot: View {
       Image(systemName: "list.bullet")
         .font(.system(size: DS.Size.emptyGlyph, weight: .light))
         .foregroundStyle(DS.Color.textFaint)
-      Text("No spans yet")
+      Text("No edits yet")
         .dsText(DS.Typography.label)
         .foregroundStyle(DS.Color.textSecondary)
-      Text("Spans appear once the clip has loaded.")
+      Text("Drag on the timeline or press I / O, then C to cut or 2 / 4 to speed up. Cuts and speed-ups show here.")
         .dsText(DS.Typography.caption)
         .foregroundStyle(DS.Color.textMuted)
         .multilineTextAlignment(.center)
@@ -148,16 +145,6 @@ struct SpansPanelSlot: View {
     .frame(maxWidth: .infinity, maxHeight: .infinity)
   }
 
-  /// Shown under the single Normal span of an unedited clip, where the list alone says nothing.
-  private var hint: some View {
-    Text("Drag on the timeline or press I / O, then C to cut or 2 to speed up. New spans show here.")
-      .dsText(DS.Typography.caption)
-      .foregroundStyle(DS.Color.textMuted)
-      .fixedSize(horizontal: false, vertical: true)
-      .padding(.horizontal, DS.Space.s1)
-      .padding(.top, DS.Space.s1_5)
-      .frame(maxWidth: .infinity, alignment: .leading)
-  }
 
   private func isSelected(_ span: Segment) -> Bool {
     model.selection == nil && model.selectedSpan == span
@@ -189,7 +176,10 @@ struct SpansPanelSlot: View {
         }
       }
       .frame(maxWidth: .infinity, alignment: .leading)
-      typeButton(index: index, span: span)
+      HStack(spacing: DS.Space.s0_5) {
+        typeButton(index: index, span: span)
+        deleteButton(index: index, span: span)
+      }
     }
     .padding(.vertical, DS.Space.s2)
     .padding(.leading, DS.Space.s3)
@@ -251,6 +241,20 @@ struct SpansPanelSlot: View {
     .anchorPreference(key: SpanTypeMenuAnchorKey.self, value: .bounds) { [index: $0] }
     .help("Change span type")
     .accessibilityLabel("Change type of span \(index + 1)")
+  }
+
+  /// Deleting a span means turning it back to Normal; it then merges with its Normal neighbours.
+  private func deleteButton(index: Int, span: Segment) -> some View {
+    Button {
+      menuRow = nil
+      model.selectSpan(at: Self.mid(span))
+      model.apply(.keep)
+    } label: {
+      Image(systemName: "eraser")
+    }
+    .buttonStyle(EditorKit.IconButtonStyle(size: DS.Size.iconButtonSmall, tint: DS.Color.dangerText))
+    .help("Clear edit (back to Normal)")
+    .accessibilityLabel("Clear edit on span \(index + 1)")
   }
 
   /// Drawn over the whole panel so it isn't clipped by the scroll view or the row.

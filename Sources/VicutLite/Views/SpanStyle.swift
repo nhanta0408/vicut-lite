@@ -31,7 +31,7 @@ extension SegmentAction {
   /// Choices offered in span-type menus: the canvas lists Normal, Cut and 2×; a 4× / 8× span
   /// (set with the number keys) is added so its current type still shows as checked.
   static func menuChoices(current: SegmentAction?) -> [SegmentAction] {
-    var choices: [SegmentAction] = [.keep, .cut, .speed(2)]
+    var choices: [SegmentAction] = [.keep, .cut, .speed(2), .speed(4)]
     if let current, !choices.contains(current) {
       choices.append(current)
     }

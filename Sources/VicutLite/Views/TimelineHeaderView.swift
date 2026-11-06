@@ -10,6 +10,9 @@ struct TimelineHeaderView: View {
     HStack(spacing: DS.Space.s2) {
       targetSummary
       editButton
+      if let target = model.editTarget {
+        quickActions(current: target.action)
+      }
       Spacer(minLength: DS.Space.s3)
       undoButton
       zoomControls
@@ -53,8 +56,54 @@ struct TimelineHeaderView: View {
     }
     .buttonStyle(EditorKit.IconButtonStyle(isActive: isEditMenuOpen, bordered: true, tint: DS.Color.gold300))
     .anchorPreference(key: EditMenuAnchorKey.self, value: .bounds) { $0 }
-    .help("Edit selected span · add a span at the playhead")
+    .help("Edit selected span")
     .accessibilityLabel("Edit selected span")
+  }
+
+  /// One-click retype of the selection. Clicking the active type again turns the span back to Normal,
+  /// so a cut can be undone from the same button that made it.
+  private func quickActions(current: SegmentAction?) -> some View {
+    HStack(spacing: DS.Space.s0_5) {
+      quickAction(.cut, current: current, help: "Cut (C)") {
+        Image(systemName: "scissors")
+      }
+      quickAction(.speed(2), current: current, help: "Speed up \(Formatters.speed(2)) (2)") {
+        Text(Formatters.speed(2)).dsText(DS.Typography.label)
+      }
+      quickAction(.speed(4), current: current, help: "Speed up \(Formatters.speed(4)) (4)") {
+        Text(Formatters.speed(4)).dsText(DS.Typography.label)
+      }
+      if current != .keep {
+        Button {
+          isEditMenuOpen = false
+          model.apply(.keep)
+        } label: {
+          Image(systemName: "eraser")
+        }
+        .buttonStyle(EditorKit.IconButtonStyle(bordered: true, tint: DS.Color.dangerText))
+        .help("Clear edit (back to Normal)")
+        .accessibilityLabel("Clear edit")
+      }
+    }
+  }
+
+  private func quickAction<Label: View>(
+    _ action: SegmentAction,
+    current: SegmentAction?,
+    help: String,
+    @ViewBuilder label: () -> Label
+  ) -> some View {
+    let isActive = current == action
+    return Button {
+      isEditMenuOpen = false
+      model.apply(isActive ? .keep : action)
+    } label: {
+      label()
+    }
+    .buttonStyle(EditorKit.IconButtonStyle(isActive: isActive, bordered: true, tint: action.titleColor))
+    .help(isActive ? "Back to Normal" : help)
+    .accessibilityLabel(action.title)
+    .accessibilityAddTraits(isActive ? .isSelected : [])
   }
 
   private var undoButton: some View {
@@ -114,7 +163,7 @@ struct TimelineHeaderView: View {
           .font(.system(size: DS.Size.iconSmall, weight: .semibold))
         Text("Spans")
         EditorKit.Pill(
-          text: "\(model.resolved.count)",
+          text: "\(model.editedSpans.count)",
           foreground: DS.Color.textSecondary,
           fill: DS.Color.bgPill,
           border: nil
