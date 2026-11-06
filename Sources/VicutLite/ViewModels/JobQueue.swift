@@ -75,8 +75,6 @@ final class Job: Identifiable {
 @MainActor
 @Observable
 final class JobQueue {
-  static let supportedExtensions: Set<String> = ["mov", "mp4", "m4v", "mkv", "webm", "avi"]
-
   private(set) var jobs: [Job] = []
   /// Bytes saved by every export finished since launch, kept even after rows are cleared.
   private(set) var sessionSavedBytes: Int64 = 0
@@ -90,7 +88,7 @@ final class JobQueue {
   }
 
   static func isSupported(_ url: URL) -> Bool {
-    supportedExtensions.contains(url.pathExtension.lowercased())
+    VideoFiles.isSupported(url)
   }
 
   /// Plain compression with the user's Settings.
