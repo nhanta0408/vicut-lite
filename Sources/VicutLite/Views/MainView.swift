@@ -9,8 +9,10 @@ struct MainView: View {
   @Environment(\.openWindow) private var openWindow
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
   @State private var page: QueuePage = .home
-  @State private var importAction: DropAction?
+  @State private var isImporting = false
   @State private var isDropTargeted = false
+  /// ⌥ state while a drag hovers Home, so the drop zone can say what releasing will do.
+  @State private var isOptionHeld = false
   @State private var isSelecting = false
   @State private var selection: Set<Job.ID> = []
   /// Jobs waiting for the "Move to Trash?" confirmation; nil when the dialog is closed.
@@ -44,14 +46,14 @@ struct MainView: View {
       )
     }
     .fileImporter(
-      isPresented: Binding(get: { importAction != nil }, set: { if !$0 { importAction = nil } }),
+      isPresented: $isImporting,
       allowedContentTypes: [.movie],
       allowsMultipleSelection: true
     ) { result in
-      if case .success(let urls) = result, let action = importAction {
-        _ = handle(urls, action: action)
+      // The picker only compresses; ⌥-drop is the single way into the editor from Home.
+      if case .success(let urls) = result {
+        _ = handle(urls, action: .compress)
       }
-      importAction = nil
     }
     .alert(
       "Couldn't move \(trashFailures.count == 1 ? "the original" : "\(trashFailures.count) originals") to Trash",
@@ -84,7 +86,7 @@ struct MainView: View {
         } else {
           QueueFooterView(
             savedBytes: queue.sessionSavedBytes,
-            onAddVideos: { importAction = .compress },
+            onAddVideos: { isImporting = true },
             onOpenSettings: { navigate(to: .settings) }
           )
         }
@@ -141,14 +143,16 @@ struct MainView: View {
   // MARK: Home content
 
   private var home: some View {
+    // One drop target only: it fills Home while the queue is empty, then shrinks to a bar above the list.
     VStack(spacing: 0) {
-      DropZoneView(isTargeted: isDropTargeted)
-        .padding(.horizontal, DS.Space.s4)
-        .padding(.top, DS.Space.s3)
-        .padding(.bottom, DS.Space.s1)
       if queue.jobs.isEmpty {
-        emptyState
+        DropZoneView(isTargeted: isDropTargeted, opensEditor: isOptionHeld, isProminent: true)
+          .padding(DS.Space.s4)
       } else {
+        DropZoneView(isTargeted: isDropTargeted, opensEditor: isOptionHeld)
+          .padding(.horizontal, DS.Space.s4)
+          .padding(.top, DS.Space.s3)
+          .padding(.bottom, DS.Space.s1)
         jobList
       }
     }
@@ -158,6 +162,7 @@ struct MainView: View {
       // ⌥ at drop time routes to the editor instead of the compress queue.
       handle(urls, action: NSEvent.modifierFlags.contains(.option) ? .edit : .compress)
     } isTargeted: { isDropTargeted = $0 }
+    .task(id: isDropTargeted) { await trackOptionKey() }
   }
 
   private var jobList: some View {
@@ -206,30 +211,6 @@ struct MainView: View {
     .frame(height: DS.Size.hitMin)
   }
 
-  private var emptyState: some View {
-    VStack(spacing: DS.Space.s3) {
-      Spacer()
-      DSIcon("film.stack", size: DS.Size.emptyStateGlyph)
-        .foregroundStyle(DS.Color.borderGold)
-      Text("No videos yet")
-        .dsText(DS.Typography.heading)
-        .foregroundStyle(DS.Color.textPrimary)
-      Text("Drop screen recordings anywhere in this window, or click Add videos.\nHold ⌥ while dropping to open the editor first.")
-        .dsText(DS.Typography.caption)
-        .foregroundStyle(DS.Color.textMuted)
-        .multilineTextAlignment(.center)
-      Button {
-        importAction = .edit
-      } label: {
-        Label("Open in editor…", systemImage: "scissors")
-      }
-      .buttonStyle(DSGhostButtonStyle())
-      .padding(.top, DS.Space.s1)
-      Spacer()
-    }
-    .padding(DS.Space.s5)
-    .frame(maxWidth: .infinity)
-  }
 
   // MARK: Selection
 
@@ -257,6 +238,18 @@ struct MainView: View {
   }
 
   // MARK: Intake
+
+  /// Polled rather than observed: during a drag from Finder the app isn't key, so it gets no
+  /// flagsChanged events, but the global modifier state is always readable.
+  private static let modifierPollInterval = Duration.milliseconds(100)
+
+  private func trackOptionKey() async {
+    while isDropTargeted, !Task.isCancelled {
+      isOptionHeld = NSEvent.modifierFlags.contains(.option)
+      try? await Task.sleep(for: Self.modifierPollInterval)
+    }
+    isOptionHeld = false
+  }
 
   private func handle(_ urls: [URL], action: DropAction) -> Bool {
     let videos = urls.filter(JobQueue.isSupported)

@@ -28,7 +28,7 @@ struct JobRowView: View {
       }
       JobThumbnailView(url: job.input, progress: runningFraction)
       info
-      Spacer(minLength: 0)
+      Spacer(minLength: DS.Size.queueRowActionGap)
       actions
     }
     .padding(DS.Space.s3)

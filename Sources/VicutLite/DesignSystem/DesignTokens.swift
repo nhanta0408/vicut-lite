@@ -396,6 +396,14 @@ extension DS.Motion {
   static let panel = Animation.easeOut(duration: 0.2)
 }
 
+// MARK: - Queue row
+
+extension DS.Size {
+  /// Minimum gap between a queue row's file names and its actions, so long names truncate early
+  /// and the row reads as two calm blocks instead of text running into the buttons.
+  static let queueRowActionGap: CGFloat = 120
+}
+
 // MARK: - Helpers
 
 extension SwiftUI.Color {
