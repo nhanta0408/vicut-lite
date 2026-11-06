@@ -76,7 +76,7 @@ private struct PresetPopover: View {
 
   private static let targets: [(String, Int64?)] = [
     ("5 MB", 5_000_000),
-    ("10 MB · GitHub free", CompressSettings.githubLimitBytes),
+    ("10 MB", CompressSettings.defaultTargetBytes),
     ("25 MB", 25_000_000),
     ("No limit", nil)
   ]

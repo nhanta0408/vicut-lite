@@ -57,7 +57,7 @@ struct SettingsView: View {
   private var compression: some View {
     @Bindable var store = store
     return SettingsSection(title: "Compression") {
-      SettingsRow(label: "Target size", hint: "Encoder aims for this size. 10 MB fits GitHub free attachments.") {
+      SettingsRow(label: "Target size", hint: "Output stays under this size.") {
         SegmentedControl(
           title: "Target size",
           options: SettingsOptions.target,
@@ -152,7 +152,7 @@ private struct OutputNamePreview: View {
 enum SettingsOptions {
   static let target: [SegmentOption<Int64?>] = [
     SegmentOption(value: CompressSettings.smallTargetBytes, label: "5 MB"),
-    SegmentOption(value: CompressSettings.githubLimitBytes, label: "10 MB", hint: "GitHub free limit"),
+    SegmentOption(value: CompressSettings.defaultTargetBytes, label: "10 MB", hint: "Default"),
     SegmentOption(value: CompressSettings.largeTargetBytes, label: "25 MB"),
     SegmentOption(value: nil, label: "No limit", hint: "Quality only, no size target")
   ]

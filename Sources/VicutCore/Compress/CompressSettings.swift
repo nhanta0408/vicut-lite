@@ -51,11 +51,11 @@ public struct CompressSettings: Codable, Equatable, Sendable {
     self.encoder = encoder
   }
 
-  /// GitHub's free-plan attachment limit is 10 MB; decimal bytes keeps us safely under it.
-  public static let githubLimitBytes: Int64 = 10_000_000
+  /// Default size cap: 10 MB (decimal, like Finder shows) fits most chat and issue-tracker uploads.
+  public static let defaultTargetBytes: Int64 = 10_000_000
 
   public static let `default` = CompressSettings(
-    targetBytes: githubLimitBytes,
+    targetBytes: defaultTargetBytes,
     maxDimension: maxDimension1080p,
     fpsCap: 30,
     audio: .mono,
@@ -63,7 +63,7 @@ public struct CompressSettings: Codable, Equatable, Sendable {
     outputSuffix: "-vicut"
   )
 
-  /// Size presets offered in Settings besides `githubLimitBytes` (decimal MB, like Finder shows).
+  /// Size presets offered in Settings besides `defaultTargetBytes` (decimal MB, like Finder shows).
   public static let smallTargetBytes: Int64 = 5_000_000
   public static let largeTargetBytes: Int64 = 25_000_000
 

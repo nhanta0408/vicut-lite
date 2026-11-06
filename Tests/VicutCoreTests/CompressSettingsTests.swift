@@ -21,7 +21,7 @@ struct CompressSettingsTests {
     let settings = CompressSettings.default
     #expect(CompressSettings.fpsPresets.contains(settings.fpsCap))
     #expect(settings.maxDimension == CompressSettings.maxDimension1080p)
-    #expect(settings.targetBytes == CompressSettings.githubLimitBytes)
+    #expect(settings.targetBytes == CompressSettings.defaultTargetBytes)
   }
 
   @Test func sanitizedSuffixKeepsOrdinaryText() {
