@@ -418,6 +418,12 @@ extension DS.Size {
   static let statusItemMarkCanvas: CGFloat = 40
   /// Floating drop zone that pops up near the screen corner during a file drag.
   static let floatingDropZone = CGSize(width: 280, height: 150)
+  /// Progress card the floating drop zone turns into after a drop.
+  static let floatingProgressWidth: CGFloat = 320
+  /// Fixed height of a job's status line, so the card doesn't jump when a progress bar becomes buttons.
+  static let floatingProgressLine: CGFloat = 28
+  /// Most jobs listed on the progress card; the rest are summarised as "+N more".
+  static let floatingProgressRows = 3
 }
 
 extension DS.Space {

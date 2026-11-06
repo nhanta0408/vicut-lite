@@ -23,6 +23,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     applyPresence()
     NSApp.activate()
     preferences.onPresenceChange = { [weak self] in self?.applyPresence() }
+    actions.onCompressStarted = { [weak self] jobs in self?.dropZone.showProgress(jobs) }
   }
 
   func applicationDidBecomeActive(_ notification: Notification) {

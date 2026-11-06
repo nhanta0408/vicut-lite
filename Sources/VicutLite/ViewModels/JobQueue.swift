@@ -92,11 +92,14 @@ final class JobQueue {
   }
 
   /// Plain compression with the user's Settings.
-  func enqueue(_ urls: [URL]) {
+  @discardableResult
+  func enqueue(_ urls: [URL]) -> [Job] {
     let accepted = urls.filter(Self.isSupported)
     let snapshot = settings.settings
-    jobs.insert(contentsOf: accepted.map { Job(input: $0, marks: [], kind: .compress, settings: snapshot) }, at: 0)
+    let added = accepted.map { Job(input: $0, marks: [], kind: .compress, settings: snapshot) }
+    jobs.insert(contentsOf: added, at: 0)
     startWorkerIfNeeded()
+    return added
   }
 
   /// Export from the editor; `fullQuality` skips the size target entirely.

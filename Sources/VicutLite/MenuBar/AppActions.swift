@@ -8,6 +8,8 @@ import VicutCore
 final class AppActions {
   var openWindow: OpenWindowAction?
   var openSettings: OpenSettingsAction?
+  /// Drops outside any window (floating zone, status item) report here so the user sees progress.
+  var onCompressStarted: (([Job]) -> Void)?
   private let queue: JobQueue
 
   init(queue: JobQueue) {
@@ -15,13 +17,15 @@ final class AppActions {
   }
 
   /// Compress (or, with `.edit`, open the editor for) the supported videos among `urls`.
+  /// `announce` = false when the drop target already lists the jobs (the menu bar popover).
   @discardableResult
-  func handle(_ urls: [URL], action: DropAction) -> Bool {
+  func handle(_ urls: [URL], action: DropAction, announce: Bool = true) -> Bool {
     let videos = VideoFiles.supported(in: urls)
     guard !videos.isEmpty else { return false }
     switch action {
     case .compress:
-      queue.enqueue(videos)
+      let jobs = queue.enqueue(videos)
+      if announce, !jobs.isEmpty { onCompressStarted?(jobs) }
     case .edit:
       bringToFront()
       videos.forEach { openEditor($0) }

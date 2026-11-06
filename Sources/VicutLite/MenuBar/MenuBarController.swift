@@ -57,7 +57,7 @@ final class MenuBarController: NSObject {
     let content = MenuBarPanelView(
       onDrop: { [weak self] urls, action in
         guard let self else { return false }
-        return self.actions.handle(urls, action: action)
+        return self.actions.handle(urls, action: action, announce: false)
       },
       onOpenApp: { [weak self] in
         self?.popover.performClose(nil)
