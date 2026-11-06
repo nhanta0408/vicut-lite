@@ -121,7 +121,7 @@ struct TimelineHeaderView: View {
         )
       }
     }
-    .buttonStyle(EditorKit.GhostButtonStyle(height: DS.Size.iconButton, isActive: isOpen))
+    .buttonStyle(EditorKit.GhostButtonStyle(height: DS.Size.editorIconButton, isActive: isOpen))
     .help("Show the list of spans")
     .accessibilityAddTraits(isOpen ? .isSelected : [])
   }

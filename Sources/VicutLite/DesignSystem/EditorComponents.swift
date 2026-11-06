@@ -61,7 +61,7 @@ extension EditorKit {
 
   /// Square icon-only button; `bordered` adds the gold-soft outline used next to labels.
   struct IconButtonStyle: ButtonStyle {
-    var size: CGFloat = DS.Size.iconButton
+    var size: CGFloat = DS.Size.editorIconButton
     var isActive = false
     var bordered = false
     var tint: SwiftUI.Color = DS.Color.textSecondary
@@ -159,7 +159,7 @@ extension EditorKit {
       .background(RoundedRectangle(cornerRadius: DS.Radius.md).fill(isError ? DS.Color.dangerBg : DS.Color.bgToast))
       .overlay(
         RoundedRectangle(cornerRadius: DS.Radius.md)
-          .strokeBorder(isError ? DS.Color.dangerBorder : DS.Color.borderGold, lineWidth: DS.Size.hairline)
+          .strokeBorder(isError ? DS.Color.editorDangerBorder : DS.Color.borderGold, lineWidth: DS.Size.hairline)
       )
       .accessibilityElement(children: .combine)
       .accessibilityAddTraits(.updatesFrequently)
@@ -242,7 +242,7 @@ extension EditorKit {
             }
           }
           .padding(.horizontal, DS.Space.s2)
-          .frame(height: DS.Size.menuItem)
+          .frame(height: DS.Size.editorMenuItem)
           .background(
             RoundedRectangle(cornerRadius: DS.Radius.sm)
               .fill(hovering && isEnabled ? DS.Color.bgHover : SwiftUI.Color.clear)

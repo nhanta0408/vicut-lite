@@ -9,11 +9,9 @@ extension DS.Color {
   /// Info toast and chip fill on the video stage.
   static let bgToast = SwiftUI.Color(hex: 0x1A1813)
   /// Error toast border.
-  static let dangerBorder = SwiftUI.Color(hex: 0x6B2F22)
+  static let editorDangerBorder = SwiftUI.Color(hex: 0x6B2F22)
   /// Ring around the round play button.
   static let goldHalo = SwiftUI.Color(hex: 0xE4B53F).opacity(0.15)
-  /// Outer glow of the selected timeline span.
-  static let goldGlow = SwiftUI.Color(hex: 0xE4B53F).opacity(0.18)
   /// Count pill inside the Spans toggle.
   static let bgPill = SwiftUI.Color(hex: 0x26231E)
 
@@ -37,8 +35,6 @@ extension DS.Color {
 }
 
 extension DS.Space {
-  /// Menu padding, chip padding-y, icon gap in buttons (canvas: 6).
-  static let s1_5: CGFloat = 6
   /// Gap inside dialogs, title bar items (canvas: 14).
   static let s3_5: CGFloat = 14
 }
@@ -60,7 +56,7 @@ extension DS.Size {
   /// Export / Cancel buttons.
   static let footerButton: CGFloat = 38
   /// Ghost icon buttons in the timeline header.
-  static let iconButton: CGFloat = 30
+  static let editorIconButton: CGFloat = 30
   /// Timeline header row.
   static let timelineHeader: CGFloat = 32
   /// Span track height.
@@ -89,18 +85,14 @@ extension DS.Size {
   /// Square swatch next to span names.
   static let swatch: CGFloat = 10
   /// Menu items.
-  static let menuItem: CGFloat = 34
+  static let editorMenuItem: CGFloat = 34
   static let menuWidth: CGFloat = 240
-  /// Overlap dialog width.
-  static let dialogWidth: CGFloat = 420
   /// Menu / dialog shadow blur and offset.
   static let shadowRadius: CGFloat = 20
   static let shadowY: CGFloat = 16
   /// Icon glyph sizes inside buttons.
   static let icon: CGFloat = 15
   static let iconSmall: CGFloat = 13
-  /// Hairline borders.
-  static let hairline: CGFloat = 1
   /// Spans panel width (floating or docked), reserved for the panel seam.
   static let spansPanel: CGFloat = 360
   /// Editor window minimum.
